@@ -73,6 +73,8 @@ export default function Home() {
 
   // Load data on mount and when user changes (login/logout)
   useEffect(() => {
+    if (loading) return; // Wait for auth to resolve before loading data
+
     async function loadData() {
       let localProfile: ProfileConfig | null = null;
       try {
@@ -108,7 +110,7 @@ export default function Home() {
     }
     loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, loading]);
 
   // Save profile on change (debounced for Supabase, immediate for localStorage)
   useEffect(() => {
