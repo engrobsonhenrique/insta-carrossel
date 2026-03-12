@@ -5,6 +5,7 @@ export type CTAType = "salvar" | "compartilhar" | "comentar" | "custom";
 export interface AdvancedOptions {
   ctaType: CTAType;
   ctaCustomText?: string;
+  usePasteText?: boolean;
   pasteOwnText?: string;
 }
 

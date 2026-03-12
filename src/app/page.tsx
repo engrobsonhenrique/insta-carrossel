@@ -141,7 +141,7 @@ export default function Home() {
   }, [profile, loaded, user]);
 
   const generate = useCallback(async () => {
-    const isPasteMode = mode === "avancado" && advancedOptions.pasteOwnText?.trim();
+    const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();
     if (!isPasteMode && !topic.trim()) return;
     if (isPasteMode && !advancedOptions.pasteOwnText?.trim()) return;
 
@@ -532,7 +532,7 @@ export default function Home() {
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && generate()}
               placeholder={
-                mode === "avancado" && advancedOptions.pasteOwnText?.trim()
+                mode === "avancado" && advancedOptions.usePasteText
                   ? "Titulo do carrossel (opcional)..."
                   : "Digite o tema ou cole o link de uma materia..."
               }
@@ -598,24 +598,48 @@ export default function Home() {
 
               {/* Paste own text */}
               <div>
-                <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Colar meu proprio texto
-                </label>
-                <p className="text-xs text-zinc-500 mb-2">
-                  Cole seu texto pronto e vamos formatar em slides automaticamente. O campo acima vira o titulo.
-                </p>
-                <textarea
-                  value={advancedOptions.pasteOwnText || ""}
-                  onChange={(e) =>
+                <label
+                  className="flex items-center gap-2 text-sm font-medium text-zinc-400 cursor-pointer"
+                  onClick={() =>
                     setAdvancedOptions((prev) => ({
                       ...prev,
-                      pasteOwnText: e.target.value,
+                      usePasteText: !prev.usePasteText,
+                      pasteOwnText: prev.usePasteText ? "" : prev.pasteOwnText,
                     }))
                   }
-                  placeholder="Cole aqui seu texto longo..."
-                  rows={6}
-                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 resize-none"
-                />
+                >
+                  <div
+                    className={`w-9 h-5 rounded-full transition-colors relative ${
+                      advancedOptions.usePasteText ? "bg-blue-500" : "bg-zinc-700"
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        advancedOptions.usePasteText ? "translate-x-4" : "translate-x-0.5"
+                      }`}
+                    />
+                  </div>
+                  Usar meu proprio texto
+                </label>
+                {advancedOptions.usePasteText && (
+                  <>
+                    <p className="text-xs text-zinc-500 mt-2 mb-2">
+                      Cole seu texto pronto e vamos formatar em slides automaticamente. O campo acima vira o titulo.
+                    </p>
+                    <textarea
+                      value={advancedOptions.pasteOwnText || ""}
+                      onChange={(e) =>
+                        setAdvancedOptions((prev) => ({
+                          ...prev,
+                          pasteOwnText: e.target.value,
+                        }))
+                      }
+                      placeholder="Cole aqui seu texto longo..."
+                      rows={6}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 resize-none"
+                    />
+                  </>
+                )}
               </div>
             </div>
           )}
