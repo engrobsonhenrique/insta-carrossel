@@ -88,8 +88,8 @@ export default function CarouselSlide({
               {/* Avatar */}
               <div
                 style={{
-                  width: 64,
-                  height: 64,
+                  width: 80,
+                  height: 80,
                   borderRadius: "50%",
                   backgroundColor: isDark ? "#38444d" : "#cfd9de",
                   overflow: "hidden",
@@ -120,7 +120,7 @@ export default function CarouselSlide({
                 >
                   <span
                     style={{
-                      fontSize: 30,
+                      fontSize: 36,
                       fontWeight: 700,
                       color: textColor,
                     }}
@@ -129,8 +129,8 @@ export default function CarouselSlide({
                   </span>
                   {profile.verified && (
                     <svg
-                      width="26"
-                      height="26"
+                      width="30"
+                      height="30"
                       viewBox="0 0 24 24"
                       fill={badgeColor}
                     >
@@ -140,7 +140,7 @@ export default function CarouselSlide({
                 </div>
                 <span
                   style={{
-                    fontSize: 26,
+                    fontSize: 30,
                     color: secondaryColor,
                   }}
                 >
