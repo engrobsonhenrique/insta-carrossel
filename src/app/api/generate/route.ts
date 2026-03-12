@@ -45,7 +45,7 @@ async function extractArticleContent(url: string): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic } = await req.json();
+    const { topic, persona } = await req.json();
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!topic) {
@@ -87,11 +87,15 @@ export async function POST(req: NextRequest) {
       ? `O usuário enviou um link de uma matéria/reportagem. Baseie o carrossel no conteúdo abaixo:\n\n---\n${articleContent}\n---`
       : `O usuário quer criar um carrossel sobre: "${topic}"`;
 
+    const personaInstruction = persona?.trim()
+      ? `\n\nPERSONA DO CRIADOR (adapte o tom, linguagem e estilo ao perfil abaixo):\n${persona.trim()}\n`
+      : "";
+
     for (const modelName of models) {
       try {
         const model = genAI.getGenerativeModel({ model: modelName });
 
-        const prompt = `Você é um especialista em criar threads virais para Instagram/Twitter sobre qualquer tema.
+        const prompt = `Você é um especialista em criar threads virais para Instagram/Twitter sobre qualquer tema.${personaInstruction}
 
 ${topicInstruction}
 

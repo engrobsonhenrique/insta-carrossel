@@ -4,6 +4,7 @@ export interface ProfileConfig {
   verified: boolean;
   headshotUrl: string | null;
   theme: "light" | "dark";
+  persona?: string;
 }
 
 export interface TweetData {

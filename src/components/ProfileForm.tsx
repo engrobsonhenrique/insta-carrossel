@@ -75,6 +75,23 @@ export default function ProfileForm({
         </div>
       </div>
 
+      {/* Persona */}
+      <div className="space-y-3 p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+        <h3 className="text-sm font-medium text-zinc-400">Persona</h3>
+        <p className="text-xs text-zinc-500">
+          Descreva seu estilo, público-alvo e tom de voz. O carrossel será adaptado à sua persona.
+        </p>
+        <textarea
+          value={profile.persona || ""}
+          onChange={(e) =>
+            onChange({ ...profile, persona: e.target.value })
+          }
+          placeholder="Ex: Sou um coach de finanças pessoais. Meu público são jovens de 20-35 anos. Uso tom direto, motivacional e com linguagem simples. Gosto de usar dados e exemplos do dia a dia."
+          rows={4}
+          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500 resize-none"
+        />
+      </div>
+
       {/* Theme */}
       <div className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
         <h3 className="text-sm font-medium text-zinc-400 mb-3">

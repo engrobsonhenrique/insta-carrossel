@@ -148,7 +148,7 @@ export default function Home() {
       const genRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic }),
+        body: JSON.stringify({ topic, persona: profile.persona }),
       });
 
       if (!genRes.ok) {
