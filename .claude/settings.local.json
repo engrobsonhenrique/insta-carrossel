@@ -15,7 +15,12 @@
       "Bash(cp -r /tmp/insta-temp/insta-carrossel/* /Users/robsonhenrique/insta-carrossel/ && cp /tmp/insta-temp/insta-carrossel/.gitignore /Users/robsonhenrique/insta-carrossel/ && cp /tmp/insta-temp/insta-carrossel/.eslintrc.json /Users/robsonhenrique/insta-carrossel/ 2>/dev/null; cp -r /tmp/insta-temp/insta-carrossel/.next /Users/robsonhenrique/insta-carrossel/ 2>/dev/null; ls /Users/robsonhenrique/insta-carrossel/)",
       "Bash(npm install:*)",
       "Bash(npx next:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(which vercel:*)",
+      "Bash(vercel login:*)",
+      "Bash(brew install:*)",
+      "Bash(gh repo:*)",
+      "Bash(git add:*)"
     ]
   }
 }

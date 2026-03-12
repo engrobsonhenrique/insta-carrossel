@@ -25,3 +25,11 @@ export interface CarouselData {
   slides: SlideData[];
   profile: ProfileConfig;
 }
+
+export interface CarouselHistoryItem {
+  id: string;
+  topic: string;
+  slides: SlideData[];
+  profile: ProfileConfig;
+  createdAt: string;
+}

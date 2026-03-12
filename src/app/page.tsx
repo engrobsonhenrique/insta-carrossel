@@ -4,8 +4,20 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { toPng } from "html-to-image";
 import CarouselSlide from "@/components/CarouselSlide";
 import ProfileForm from "@/components/ProfileForm";
-import { ProfileConfig, TweetData, SlideData } from "@/lib/types";
+import CarouselHistory from "@/components/CarouselHistory";
+import {
+  ProfileConfig,
+  TweetData,
+  SlideData,
+  CarouselHistoryItem,
+} from "@/lib/types";
 import { buildSlides } from "@/lib/slide-layout";
+import {
+  getHistory,
+  saveToHistory,
+  deleteFromHistory,
+  clearHistory,
+} from "@/lib/carousel-history";
 
 type Status = "idle" | "generating" | "searching" | "building" | "done";
 
@@ -19,6 +31,8 @@ export default function Home() {
   const [geminiKey, setGeminiKey] = useState("");
   const [unsplashKey, setUnsplashKey] = useState("");
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const [previewScale, setPreviewScale] = useState(0.5);
   const [profile, setProfile] = useState<ProfileConfig>({
     displayName: "Seu Nome",
     handle: "seuhandle",
@@ -27,6 +41,23 @@ export default function Home() {
     theme: "dark",
   });
   const [loaded, setLoaded] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [history, setHistory] = useState<CarouselHistoryItem[]>([]);
+  const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+
+  // Responsive preview scaling
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0].contentRect.width;
+      setPreviewScale(Math.min(width / 1080, 0.5));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [slides]);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -39,6 +70,7 @@ export default function Home() {
         if (data.profile) setProfile(data.profile);
       }
     } catch {}
+    setHistory(getHistory());
     setLoaded(true);
   }, []);
 
@@ -65,9 +97,9 @@ export default function Home() {
     setSlides([]);
     setTweets([]);
     setCurrentSlide(0);
+    setSidebarOpen(false);
 
     try {
-      // Step 1: Generate thread with Gemini
       const genRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -81,13 +113,10 @@ export default function Home() {
 
       const { tweets: generatedTweets, searchTerms } = await genRes.json();
       const tweetData: TweetData[] = generatedTweets.map(
-        (t: { text: string }) => ({
-          text: t.text,
-        })
+        (t: { text: string }) => ({ text: t.text })
       );
       setTweets(tweetData);
 
-      // Step 2: Search for images
       let images: string[] = [];
       if (unsplashKey && searchTerms?.length) {
         setStatus("searching");
@@ -96,10 +125,7 @@ export default function Home() {
         const imgRes = await fetch("/api/search-images", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            searchTerms,
-            accessKey: unsplashKey,
-          }),
+          body: JSON.stringify({ searchTerms, accessKey: unsplashKey }),
         });
 
         if (imgRes.ok) {
@@ -108,7 +134,6 @@ export default function Home() {
         }
       }
 
-      // Step 3: Build slides
       setStatus("building");
       setStatusMessage("Montando slides...");
 
@@ -118,18 +143,22 @@ export default function Home() {
       setStatusMessage(
         `Carrossel gerado! ${builtSlides.length} slides prontos.`
       );
+
+      // Save to history
+      const saved = saveToHistory({ topic, slides: builtSlides, profile });
+      setCurrentHistoryId(saved.id);
+      setHistory(getHistory());
     } catch (error: unknown) {
       setStatus("idle");
       const message =
         error instanceof Error ? error.message : "Erro desconhecido";
       setStatusMessage(message);
     }
-  }, [topic, geminiKey, unsplashKey]);
+  }, [topic, geminiKey, unsplashKey, profile]);
 
   const downloadSlide = useCallback(async (index: number) => {
     const el = slideRefs.current[index];
     if (!el) return;
-
     try {
       const dataUrl = await toPng(el, {
         width: 1080,
@@ -145,12 +174,40 @@ export default function Home() {
     }
   }, []);
 
-  const downloadAll = useCallback(async () => {
-    for (let i = 0; i < slides.length; i++) {
-      await downloadSlide(i);
-      await new Promise((r) => setTimeout(r, 500));
+  const downloadAllAsZip = useCallback(async () => {
+    setDownloading(true);
+    setDownloadProgress(0);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      for (let i = 0; i < slides.length; i++) {
+        const el = slideRefs.current[i];
+        if (!el) continue;
+        const dataUrl = await toPng(el, {
+          width: 1080,
+          height: 1350,
+          pixelRatio: 1,
+        });
+        const base64 = dataUrl.split(",")[1];
+        zip.file(`slide-${String(i + 1).padStart(2, "0")}.png`, base64, {
+          base64: true,
+        });
+        setDownloadProgress(Math.round(((i + 1) / slides.length) * 100));
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.download = `carrossel-${topic.replace(/\s+/g, "-").toLowerCase()}.zip`;
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("ZIP error:", err);
     }
-  }, [slides, downloadSlide]);
+    setDownloading(false);
+  }, [slides, topic]);
 
   const updateTweetText = (
     slideIndex: number,
@@ -167,61 +224,142 @@ export default function Home() {
     setSlides(newSlides);
   };
 
+  const loadCarousel = (item: CarouselHistoryItem) => {
+    setSlides(item.slides);
+    setCurrentSlide(0);
+    setCurrentHistoryId(item.id);
+    setTopic(item.topic);
+    setStatus("done");
+    setStatusMessage(`Carrossel carregado: ${item.topic}`);
+    setSidebarOpen(false);
+  };
+
+  const handleDeleteHistory = (id: string) => {
+    deleteFromHistory(id);
+    setHistory(getHistory());
+    if (currentHistoryId === id) setCurrentHistoryId(null);
+  };
+
+  const handleClearHistory = () => {
+    clearHistory();
+    setHistory([]);
+    setCurrentHistoryId(null);
+  };
+
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
       {/* Header */}
-      <header className="border-b border-zinc-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold">Insta Carrossel</h1>
-            <p className="text-sm text-zinc-500">
-              Gere carrosséis de Instagram com IA
-            </p>
+      <header className="border-b border-zinc-800 px-4 md:px-6 py-3 md:py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-2 -ml-2 text-zinc-400 hover:text-white"
+            >
+              <svg
+                width="24"
+                height="24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M3 12h18M3 6h18M3 18h18" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-lg md:text-xl font-bold">Insta Carrossel</h1>
+              <p className="text-xs md:text-sm text-zinc-500 hidden sm:block">
+                Gere carrosséis de Instagram com IA
+              </p>
+            </div>
           </div>
           {status === "done" && (
             <button
-              onClick={downloadAll}
-              className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              onClick={downloadAllAsZip}
+              disabled={downloading}
+              className="bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
             >
-              Baixar todos os slides
+              {downloading
+                ? `Baixando... ${downloadProgress}%`
+                : "Baixar ZIP"}
             </button>
           )}
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto flex gap-6 p-6">
-        {/* Sidebar */}
-        <aside className="w-80 flex-shrink-0 space-y-6">
-          <ProfileForm
-            profile={profile}
-            onChange={setProfile}
-            geminiKey={geminiKey}
-            onGeminiKeyChange={setGeminiKey}
-            unsplashKey={unsplashKey}
-            onUnsplashKeyChange={setUnsplashKey}
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6">
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/60 z-40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
           />
+        )}
+
+        {/* Sidebar */}
+        <aside
+          className={`
+            fixed inset-y-0 left-0 z-50 w-80 bg-zinc-950 border-r border-zinc-800 p-4 overflow-y-auto
+            transform transition-transform duration-300 ease-in-out
+            md:relative md:inset-auto md:z-auto md:transform-none md:border-r-0 md:p-0
+            md:w-80 md:flex-shrink-0
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          `}
+        >
+          {/* Close button mobile */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="md:hidden absolute top-3 right-3 p-2 text-zinc-400 hover:text-white"
+          >
+            <svg
+              width="20"
+              height="20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M15 5L5 15M5 5l10 10" />
+            </svg>
+          </button>
+
+          <div className="space-y-6 mt-8 md:mt-0">
+            <ProfileForm
+              profile={profile}
+              onChange={setProfile}
+              geminiKey={geminiKey}
+              onGeminiKeyChange={setGeminiKey}
+              unsplashKey={unsplashKey}
+              onUnsplashKeyChange={setUnsplashKey}
+            />
+            <CarouselHistory
+              history={history}
+              currentId={currentHistoryId}
+              onLoad={loadCarousel}
+              onDelete={handleDeleteHistory}
+              onClear={handleClearHistory}
+            />
+          </div>
         </aside>
 
         {/* Main content */}
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 space-y-4 md:space-y-6 min-w-0">
           {/* Topic input */}
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3">
             <input
               type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && generate()}
-              placeholder="Digite o tema do carrossel... ex: O grande crescimento populacional no mundo"
-              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
+              placeholder="Digite o tema do carrossel..."
+              className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 md:px-4 py-3 text-sm md:text-base text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
             />
             <button
               onClick={generate}
               disabled={status !== "idle" && status !== "done"}
-              className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-6 py-3 rounded-xl font-medium transition-colors whitespace-nowrap"
+              className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-4 md:px-6 py-3 rounded-xl text-sm md:text-base font-medium transition-colors whitespace-nowrap"
             >
-              {status === "idle" || status === "done"
-                ? "Gerar"
-                : "Gerando..."}
+              {status === "idle" || status === "done" ? "Gerar" : "Gerando..."}
             </button>
           </div>
 
@@ -249,13 +387,13 @@ export default function Home() {
           {slides.length > 0 && (
             <div className="space-y-4">
               {/* Slide navigation */}
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex gap-1.5 md:gap-2 flex-wrap">
                   {slides.map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setCurrentSlide(i)}
-                      className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                      className={`w-8 h-8 md:w-10 md:h-10 rounded-lg text-xs md:text-sm font-medium transition-colors ${
                         i === currentSlide
                           ? "bg-blue-500 text-white"
                           : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
@@ -267,27 +405,26 @@ export default function Home() {
                 </div>
                 <button
                   onClick={() => downloadSlide(currentSlide)}
-                  className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm transition-colors whitespace-nowrap"
                 >
-                  Baixar slide {currentSlide + 1}
+                  Baixar {currentSlide + 1}
                 </button>
               </div>
 
-              {/* Slide preview */}
-              <div className="flex gap-6">
+              {/* Slide preview + edit */}
+              <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
                 {/* The actual slide (scaled for preview) */}
-                <div className="flex-1">
+                <div className="flex-1" ref={previewRef}>
                   <div
-                    className="rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl"
+                    className="rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl mx-auto"
                     style={{
                       maxWidth: 540,
-                      margin: "0 auto",
-                      height: 675,
+                      height: Math.round(previewScale * 1350),
                     }}
                   >
                     <div
                       style={{
-                        transform: "scale(0.5)",
+                        transform: `scale(${previewScale})`,
                         transformOrigin: "top left",
                         width: 1080,
                         height: 1350,
@@ -304,7 +441,7 @@ export default function Home() {
                 </div>
 
                 {/* Edit panel */}
-                <div className="w-72 space-y-3">
+                <div className="w-full lg:w-72 space-y-3">
                   <h3 className="text-sm font-medium text-zinc-400">
                     Editar slide {currentSlide + 1}
                   </h3>
@@ -374,7 +511,7 @@ export default function Home() {
 
           {/* Empty state */}
           {slides.length === 0 && status === "idle" && !statusMessage && (
-            <div className="flex flex-col items-center justify-center py-20 text-zinc-600">
+            <div className="flex flex-col items-center justify-center py-12 md:py-20 text-zinc-600">
               <svg
                 width="64"
                 height="64"
@@ -387,7 +524,9 @@ export default function Home() {
                 <rect x="2" y="2" width="20" height="20" rx="3" />
                 <path d="M7 2v20M17 2v20" />
               </svg>
-              <p className="text-lg">Digite um tema e clique em Gerar</p>
+              <p className="text-base md:text-lg">
+                Digite um tema e clique em Gerar
+              </p>
               <p className="text-sm mt-1">
                 O carrossel será criado automaticamente
               </p>
