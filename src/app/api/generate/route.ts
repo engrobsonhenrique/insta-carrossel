@@ -62,10 +62,10 @@ Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
     {"text": "texto do tweet 6"},
     {"text": "texto do tweet 7"}
   ],
-  "searchTerms": ["termo de busca 1 em inglês para imagens", "termo 2", "termo 3"]
+  "searchTerms": ["specific search term 1", "specific search term 2", "specific search term 3", "specific search term 4", "specific search term 5"]
 }
 
-O campo searchTerms deve conter 3 termos em inglês para buscar imagens relevantes ao tema no Unsplash.`;
+O campo searchTerms deve conter 5 termos em inglês, bem específicos e descritivos, para buscar imagens relevantes ao tema na web. Cada termo deve ser uma frase curta e descritiva (2-4 palavras) que retorne imagens visualmente relevantes ao conteúdo dos tweets. Evite termos genéricos.`;
 
         result = await model.generateContent(prompt);
         break;

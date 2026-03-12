@@ -282,6 +282,26 @@ export default function Home() {
     setSlides(newSlides);
   };
 
+  const updateSlideImage = (slideIndex: number, imageUrl: string | undefined) => {
+    const newSlides = [...slides];
+    newSlides[slideIndex] = {
+      ...newSlides[slideIndex],
+      imageUrl,
+    };
+    setSlides(newSlides);
+  };
+
+  const handleImageUpload = (slideIndex: number, file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (dataUrl) {
+        updateSlideImage(slideIndex, dataUrl);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const loadCarousel = (item: CarouselHistoryItem) => {
     setSlides(item.slides);
     setCurrentSlide(0);
@@ -553,18 +573,43 @@ export default function Home() {
                       </div>
                     </div>
                   ))}
-                  {slides[currentSlide].imageUrl && (
-                    <div>
-                      <label className="block text-xs text-zinc-500 mb-1">
-                        Imagem
-                      </label>
+                  <div>
+                    <label className="block text-xs text-zinc-500 mb-1">
+                      Imagem do slide
+                    </label>
+                    {slides[currentSlide].imageUrl && (
                       <img
                         src={slides[currentSlide].imageUrl}
                         alt=""
-                        className="w-full rounded-lg border border-zinc-700"
+                        className="w-full rounded-lg border border-zinc-700 mb-2"
                       />
+                    )}
+                    <div className="flex gap-2">
+                      <label className="flex-1 cursor-pointer bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium py-2 px-3 rounded-lg text-center transition-colors">
+                        {slides[currentSlide].imageUrl ? "Trocar imagem" : "Enviar imagem"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageUpload(currentSlide, file);
+                            }
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {slides[currentSlide].imageUrl && (
+                        <button
+                          onClick={() => updateSlideImage(currentSlide, undefined)}
+                          className="bg-red-600/20 hover:bg-red-600/30 text-red-400 text-xs font-medium py-2 px-3 rounded-lg transition-colors"
+                        >
+                          Remover
+                        </button>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
 
