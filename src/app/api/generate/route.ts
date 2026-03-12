@@ -161,7 +161,15 @@ O campo searchTerms deve conter 5 termos em inglês, bem específicos e descriti
       );
     }
 
-    const data = JSON.parse(jsonMatch[0]);
+    let data;
+    try {
+      data = JSON.parse(jsonMatch[0]);
+    } catch {
+      return NextResponse.json(
+        { error: "A IA retornou um formato inválido. Tente novamente." },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(data);
   } catch (error: unknown) {
     console.error("Generate error:", error);

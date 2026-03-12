@@ -192,11 +192,22 @@ export default function Home() {
         });
 
         if (!genRes.ok) {
-          const err = await genRes.json();
-          throw new Error(err.error || "Erro ao gerar conteúdo");
+          let errMsg = "Erro ao gerar conteúdo";
+          try {
+            const err = await genRes.json();
+            errMsg = err.error || errMsg;
+          } catch {
+            errMsg = await genRes.text().catch(() => errMsg);
+          }
+          throw new Error(errMsg);
         }
 
-        const genData = await genRes.json();
+        let genData;
+        try {
+          genData = await genRes.json();
+        } catch {
+          throw new Error("Resposta inválida do servidor. Tente novamente.");
+        }
         tweetData = genData.tweets.map((t: { text: string }) => ({ text: t.text }));
         searchTerms = genData.searchTerms;
         setTweets(tweetData);
