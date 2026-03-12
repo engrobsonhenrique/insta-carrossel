@@ -2,27 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 
 const UNSPLASH_BASE = "https://api.unsplash.com";
 
-async function searchGoogle(
+async function searchTavily(
   searchTerms: string[],
-  apiKey: string,
-  cx: string
+  apiKey: string
 ): Promise<string[]> {
   const images: string[] = [];
 
   for (const term of searchTerms) {
     try {
-      const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(term)}&searchType=image&num=3&imgSize=large`;
-      const res = await fetch(url);
+      const res = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: apiKey,
+          query: term,
+          include_images: true,
+          include_image_descriptions: false,
+          max_results: 3,
+          search_depth: "basic",
+        }),
+      });
 
       if (!res.ok) continue;
 
       const data = await res.json();
-      if (data.items && data.items.length > 0) {
-        // Get up to 2 images per search term
-        const termImages = data.items
+      if (data.images && data.images.length > 0) {
+        const termImages = data.images
           .slice(0, 2)
-          .map((item: { link: string }) => item.link)
-          .filter((link: string) => link && link.startsWith("http"));
+          .map((img: string | { url: string }) =>
+            typeof img === "string" ? img : img.url
+          )
+          .filter((url: string) => url && url.startsWith("http"));
         images.push(...termImages);
       }
     } catch {
@@ -80,12 +90,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Try Google Custom Search first
-    const googleApiKey = process.env.GOOGLE_SEARCH_API_KEY;
-    const googleCx = process.env.GOOGLE_SEARCH_CX;
+    // Try Tavily search first
+    const tavilyApiKey = process.env.TAVILY_API_KEY;
 
-    if (googleApiKey && googleCx) {
-      const images = await searchGoogle(searchTerms, googleApiKey, googleCx);
+    if (tavilyApiKey) {
+      const images = await searchTavily(searchTerms, tavilyApiKey);
       if (images.length > 0) {
         return NextResponse.json({ images });
       }
