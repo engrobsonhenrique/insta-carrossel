@@ -16,6 +16,7 @@ import {
   CarouselHistoryItem,
   GenerationMode,
   CTAType,
+  CaptionFormat,
   AdvancedOptions,
 } from "@/lib/types";
 import { splitTextIntoTweets, buildCTATweet } from "@/lib/text-splitter";
@@ -65,6 +66,7 @@ export default function Home() {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [history, setHistory] = useState<CarouselHistoryItem[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Responsive preview scaling
@@ -147,6 +149,7 @@ export default function Home() {
 
     setSlides([]);
     setTweets([]);
+    setCaption("");
     setCurrentSlide(0);
     setSidebarOpen(false);
 
@@ -183,6 +186,9 @@ export default function Home() {
           if (advancedOptions.ctaType === "custom") {
             genBody.ctaCustomText = advancedOptions.ctaCustomText;
           }
+          if (advancedOptions.captionFormat) {
+            genBody.captionFormat = advancedOptions.captionFormat;
+          }
         }
 
         const genRes = await fetch("/api/generate", {
@@ -210,6 +216,7 @@ export default function Home() {
         }
         tweetData = genData.tweets.map((t: { text: string }) => ({ text: t.text }));
         searchTerms = genData.searchTerms;
+        if (genData.caption) setCaption(genData.caption);
         setTweets(tweetData);
       }
 
@@ -607,6 +614,44 @@ export default function Home() {
                 )}
               </div>
 
+              {/* Caption format */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">
+                  Legenda do post
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: undefined, label: "Sem legenda" },
+                    { value: "curta", label: "Curta" },
+                    { value: "longa", label: "Longa" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.label}
+                      onClick={() =>
+                        setAdvancedOptions((prev) => ({
+                          ...prev,
+                          captionFormat: opt.value as CaptionFormat | undefined,
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        advancedOptions.captionFormat === opt.value
+                          ? "bg-blue-500 text-white"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-zinc-500 mt-1.5">
+                  {advancedOptions.captionFormat === "curta"
+                    ? "2-4 linhas, direta ao ponto com CTA."
+                    : advancedOptions.captionFormat === "longa"
+                      ? "8-15 linhas com contexto, storytelling e hashtags."
+                      : "Nenhuma legenda sera gerada."}
+                </p>
+              </div>
+
               {/* Paste own text */}
               <div>
                 <label
@@ -792,6 +837,31 @@ export default function Home() {
                   </div>
                 </div>
               </div>
+
+              {/* Generated caption */}
+              {caption && (
+                <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-zinc-400">
+                      Legenda do post
+                    </h3>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(caption);
+                      }}
+                      className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                  <textarea
+                    value={caption}
+                    onChange={(e) => setCaption(e.target.value)}
+                    rows={Math.min(caption.split("\n").length + 2, 12)}
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 resize-none"
+                  />
+                </div>
+              )}
 
               <div
                 style={{ position: "absolute", left: "-9999px", top: 0 }}

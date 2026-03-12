@@ -2,11 +2,14 @@ export type GenerationMode = "rapido" | "avancado";
 
 export type CTAType = "salvar" | "compartilhar" | "comentar" | "custom";
 
+export type CaptionFormat = "curta" | "longa";
+
 export interface AdvancedOptions {
   ctaType: CTAType;
   ctaCustomText?: string;
   usePasteText?: boolean;
   pasteOwnText?: string;
+  captionFormat?: CaptionFormat;
 }
 
 export interface ProfileConfig {
