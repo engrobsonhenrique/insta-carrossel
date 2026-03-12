@@ -8,7 +8,6 @@ import CarouselHistory from "@/components/CarouselHistory";
 import AuthButton from "@/components/AuthButton";
 import LoginScreen from "@/components/LoginScreen";
 import { useAuth } from "@/components/AuthProvider";
-import { createClient } from "@/lib/supabase/client";
 import {
   ProfileConfig,
   TweetData,
@@ -27,14 +26,6 @@ import {
   deleteFromHistory,
   clearHistory,
 } from "@/lib/carousel-history";
-import {
-  loadProfile as loadCloudProfile,
-  saveProfile as saveCloudProfile,
-  loadCarousels as loadCloudCarousels,
-  saveCarousel as saveCloudCarousel,
-  deleteCarousel as deleteCloudCarousel,
-  clearCarousels as clearCloudCarousels,
-} from "@/lib/supabase/sync";
 
 type Status = "idle" | "generating" | "searching" | "building" | "done";
 
@@ -67,7 +58,6 @@ export default function Home() {
   const [history, setHistory] = useState<CarouselHistoryItem[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Responsive preview scaling
   useEffect(() => {
@@ -81,48 +71,24 @@ export default function Home() {
     return () => observer.disconnect();
   }, [slides]);
 
-  // Load data on mount and when user changes (login/logout)
+  // Load data on mount
   useEffect(() => {
-    if (loading) return; // Wait for auth to resolve before loading data
+    if (loading) return;
 
-    async function loadData() {
-      let localProfile: ProfileConfig | null = null;
-      try {
-        const saved = localStorage.getItem("insta-carrossel-config");
-        if (saved) {
-          const data = JSON.parse(saved);
-          localProfile = data.profile || null;
-        }
-      } catch {}
-
-      if (user) {
-        const supabase = createClient();
-        const cloudProfile = await loadCloudProfile(supabase);
-
-        if (cloudProfile) {
-          setProfile(cloudProfile.profile);
-        } else if (localProfile) {
-          setProfile(localProfile);
-          await saveCloudProfile(supabase, localProfile, "", "");
-        }
-
-        const cloudHistory = await loadCloudCarousels(supabase);
-        if (cloudHistory.length > 0) {
-          setHistory(cloudHistory);
-        } else {
-          setHistory(getHistory());
-        }
-      } else {
-        if (localProfile) setProfile(localProfile);
-        setHistory(getHistory());
+    try {
+      const saved = localStorage.getItem("insta-carrossel-config");
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.profile) setProfile(data.profile);
       }
-      setLoaded(true);
-    }
-    loadData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, loading]);
+    } catch {}
 
-  // Save profile on change (debounced for Supabase, immediate for localStorage)
+    setHistory(getHistory());
+    setLoaded(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+
+  // Save profile on change
   useEffect(() => {
     if (!loaded) return;
 
@@ -132,15 +98,7 @@ export default function Home() {
         JSON.stringify({ profile })
       );
     } catch {}
-
-    if (user) {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(async () => {
-        const supabase = createClient();
-        await saveCloudProfile(supabase, profile, "", "");
-      }, 2000);
-    }
-  }, [profile, loaded, user]);
+  }, [profile, loaded]);
 
   const generate = useCallback(async () => {
     const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();
@@ -251,30 +209,16 @@ export default function Home() {
 
       // Save to history
       const historyTopic = topic.trim() || "Texto colado";
-      if (user) {
-        const supabase = createClient();
-        const saved = await saveCloudCarousel(supabase, {
-          topic: historyTopic,
-          slides: builtSlides,
-          profile,
-        });
-        if (saved) {
-          setCurrentHistoryId(saved.id);
-          const cloudHistory = await loadCloudCarousels(supabase);
-          setHistory(cloudHistory);
-        }
-      } else {
-        const saved = saveToHistory({ topic: historyTopic, slides: builtSlides, profile });
-        setCurrentHistoryId(saved.id);
-        setHistory(getHistory());
-      }
+      const saved = saveToHistory({ topic: historyTopic, slides: builtSlides, profile });
+      setCurrentHistoryId(saved.id);
+      setHistory(getHistory());
     } catch (error: unknown) {
       setStatus("idle");
       const message =
         error instanceof Error ? error.message : "Erro desconhecido";
       setStatusMessage(message);
     }
-  }, [topic, profile, user, mode, advancedOptions]);
+  }, [topic, profile, mode, advancedOptions]);
 
   const downloadSlide = useCallback(async (index: number) => {
     const el = slideRefs.current[index];
@@ -374,24 +318,13 @@ export default function Home() {
     setSidebarOpen(false);
   };
 
-  const handleDeleteHistory = async (id: string) => {
-    if (user) {
-      const supabase = createClient();
-      await deleteCloudCarousel(supabase, id);
-      const cloudHistory = await loadCloudCarousels(supabase);
-      setHistory(cloudHistory);
-    } else {
-      deleteFromHistory(id);
-      setHistory(getHistory());
-    }
+  const handleDeleteHistory = (id: string) => {
+    deleteFromHistory(id);
+    setHistory(getHistory());
     if (currentHistoryId === id) setCurrentHistoryId(null);
   };
 
-  const handleClearHistory = async () => {
-    if (user) {
-      const supabase = createClient();
-      await clearCloudCarousels(supabase);
-    }
+  const handleClearHistory = () => {
     clearHistory();
     setHistory([]);
     setCurrentHistoryId(null);
@@ -488,22 +421,6 @@ export default function Home() {
           </button>
 
           <div className="space-y-6 mt-8 md:mt-0">
-            {user && (
-              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-xs text-green-400 flex items-center gap-2">
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-                Sincronizado na nuvem
-              </div>
-            )}
             <ProfileForm
               profile={profile}
               onChange={setProfile}

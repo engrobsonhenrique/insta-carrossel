@@ -1,11 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { User } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
+import { createContext, useContext } from "react";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 
 interface AuthContextType {
-  user: User | null;
+  user: { id: string; email: string | null } | null;
   loading: boolean;
 }
 
@@ -15,39 +14,14 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user: kindeUser, isLoading } = useKindeBrowserClient();
 
-  useEffect(() => {
-    const supabase = createClient();
-
-    supabase.auth.getUser()
-      .then(({ data: { user } }) => {
-        setUser(user);
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
-
-    // Fallback: stop loading after 5s even if Supabase is unresponsive
-    const timeout = setTimeout(() => setLoading(false), 5000);
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
-  }, []);
+  const user = kindeUser
+    ? { id: kindeUser.id, email: kindeUser.email ?? null }
+    : null;
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading: isLoading ?? false }}>
       {children}
     </AuthContext.Provider>
   );
