@@ -4,13 +4,18 @@ const UNSPLASH_BASE = "https://api.unsplash.com";
 
 export async function POST(req: NextRequest) {
   try {
-    const { searchTerms, accessKey } = await req.json();
+    const { searchTerms } = await req.json();
+    const accessKey = process.env.UNSPLASH_ACCESS_KEY;
 
-    if (!searchTerms || !accessKey) {
+    if (!searchTerms) {
       return NextResponse.json(
-        { error: "searchTerms e accessKey são obrigatórios" },
+        { error: "searchTerms é obrigatório" },
         { status: 400 }
       );
+    }
+
+    if (!accessKey) {
+      return NextResponse.json({ images: [] });
     }
 
     const images: string[] = [];
@@ -27,7 +32,6 @@ export async function POST(req: NextRequest) {
 
       const data = await res.json();
       if (data.results && data.results.length > 0) {
-        // Get the regular size image (1080px wide)
         const img = data.results[0]?.urls?.regular;
         if (img) images.push(img);
       }

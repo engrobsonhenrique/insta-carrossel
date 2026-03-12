@@ -40,8 +40,6 @@ export default function Home() {
   const [slides, setSlides] = useState<SlideData[]>([]);
   const [, setTweets] = useState<TweetData[]>([]);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [geminiKey, setGeminiKey] = useState("");
-  const [unsplashKey, setUnsplashKey] = useState("");
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(0.5);
@@ -75,16 +73,11 @@ export default function Home() {
   // Load data on mount and when user changes (login/logout)
   useEffect(() => {
     async function loadData() {
-      // Always load localStorage first (fast cache)
-      let localGemini = "";
-      let localUnsplash = "";
       let localProfile: ProfileConfig | null = null;
       try {
         const saved = localStorage.getItem("insta-carrossel-config");
         if (saved) {
           const data = JSON.parse(saved);
-          localGemini = data.geminiKey || "";
-          localUnsplash = data.unsplashKey || "";
           localProfile = data.profile || null;
         }
       } catch {}
@@ -93,37 +86,21 @@ export default function Home() {
         const supabase = createClient();
         const cloudProfile = await loadCloudProfile(supabase);
 
-        if (cloudProfile && (cloudProfile.geminiKey || cloudProfile.unsplashKey)) {
-          // Cloud has keys — use cloud data
+        if (cloudProfile) {
           setProfile(cloudProfile.profile);
-          setGeminiKey(cloudProfile.geminiKey);
-          setUnsplashKey(cloudProfile.unsplashKey);
-        } else {
-          // First login or cloud is empty — migrate localStorage to cloud
-          if (localProfile) setProfile(localProfile);
-          if (localGemini) setGeminiKey(localGemini);
-          if (localUnsplash) setUnsplashKey(localUnsplash);
-
-          // Push local data to cloud
-          await saveCloudProfile(
-            supabase,
-            localProfile || profile,
-            localGemini,
-            localUnsplash
-          );
+        } else if (localProfile) {
+          setProfile(localProfile);
+          await saveCloudProfile(supabase, localProfile, "", "");
         }
 
         const cloudHistory = await loadCloudCarousels(supabase);
         if (cloudHistory.length > 0) {
           setHistory(cloudHistory);
         } else {
-          const localHistory = getHistory();
-          setHistory(localHistory);
+          setHistory(getHistory());
         }
       } else {
         if (localProfile) setProfile(localProfile);
-        if (localGemini) setGeminiKey(localGemini);
-        if (localUnsplash) setUnsplashKey(localUnsplash);
         setHistory(getHistory());
       }
       setLoaded(true);
@@ -132,34 +109,28 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Save config on change (debounced for Supabase, immediate for localStorage)
+  // Save profile on change (debounced for Supabase, immediate for localStorage)
   useEffect(() => {
     if (!loaded) return;
 
-    // Always save to localStorage as cache
     try {
       localStorage.setItem(
         "insta-carrossel-config",
-        JSON.stringify({ geminiKey, unsplashKey, profile })
+        JSON.stringify({ profile })
       );
     } catch {}
 
-    // Save to Supabase (debounced)
     if (user) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(async () => {
         const supabase = createClient();
-        await saveCloudProfile(supabase, profile, geminiKey, unsplashKey);
+        await saveCloudProfile(supabase, profile, "", "");
       }, 2000);
     }
-  }, [geminiKey, unsplashKey, profile, loaded, user]);
+  }, [profile, loaded, user]);
 
   const generate = useCallback(async () => {
     if (!topic.trim()) return;
-    if (!geminiKey) {
-      setStatusMessage("Adicione sua Gemini API Key nas configurações");
-      return;
-    }
 
     setStatus("generating");
     setStatusMessage("Pesquisando e escrevendo thread...");
@@ -169,10 +140,11 @@ export default function Home() {
     setSidebarOpen(false);
 
     try {
+      // Step 1: Generate thread (API keys are on server)
       const genRes = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, apiKey: geminiKey }),
+        body: JSON.stringify({ topic }),
       });
 
       if (!genRes.ok) {
@@ -186,15 +158,16 @@ export default function Home() {
       );
       setTweets(tweetData);
 
+      // Step 2: Search images (API key is on server)
       let images: string[] = [];
-      if (unsplashKey && searchTerms?.length) {
+      if (searchTerms?.length) {
         setStatus("searching");
         setStatusMessage("Buscando imagens...");
 
         const imgRes = await fetch("/api/search-images", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ searchTerms, accessKey: unsplashKey }),
+          body: JSON.stringify({ searchTerms }),
         });
 
         if (imgRes.ok) {
@@ -203,6 +176,7 @@ export default function Home() {
         }
       }
 
+      // Step 3: Build slides
       setStatus("building");
       setStatusMessage("Montando slides...");
 
@@ -237,7 +211,7 @@ export default function Home() {
         error instanceof Error ? error.message : "Erro desconhecido";
       setStatusMessage(message);
     }
-  }, [topic, geminiKey, unsplashKey, profile, user]);
+  }, [topic, profile, user]);
 
   const downloadSlide = useCallback(async (index: number) => {
     const el = slideRefs.current[index];
@@ -385,7 +359,6 @@ export default function Home() {
       </header>
 
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6">
-        {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black/60 z-40 md:hidden"
@@ -393,7 +366,6 @@ export default function Home() {
           />
         )}
 
-        {/* Sidebar */}
         <aside
           className={`
             fixed inset-y-0 left-0 z-50 w-80 bg-zinc-950 border-r border-zinc-800 p-4 overflow-y-auto
@@ -438,10 +410,6 @@ export default function Home() {
             <ProfileForm
               profile={profile}
               onChange={setProfile}
-              geminiKey={geminiKey}
-              onGeminiKeyChange={setGeminiKey}
-              unsplashKey={unsplashKey}
-              onUnsplashKeyChange={setUnsplashKey}
             />
             <CarouselHistory
               history={history}
@@ -453,9 +421,7 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* Main content */}
         <div className="flex-1 space-y-4 md:space-y-6 min-w-0">
-          {/* Topic input */}
           <div className="flex gap-2 md:gap-3">
             <input
               type="text"
@@ -474,7 +440,6 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Status */}
           {statusMessage && (
             <div
               className={`text-sm px-4 py-2 rounded-lg ${
@@ -494,7 +459,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Carousel preview */}
           {slides.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-2">
@@ -611,7 +575,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Empty state */}
           {slides.length === 0 && status === "idle" && !statusMessage && (
             <div className="flex flex-col items-center justify-center py-12 md:py-20 text-zinc-600">
               <svg

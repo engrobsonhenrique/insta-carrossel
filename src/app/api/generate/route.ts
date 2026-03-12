@@ -3,27 +3,37 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, apiKey } = await req.json();
+    const { topic } = await req.json();
+    const apiKey = process.env.GEMINI_API_KEY;
 
-    if (!topic || !apiKey) {
+    if (!topic) {
       return NextResponse.json(
-        { error: "Topic e API key são obrigatórios" },
+        { error: "Topic é obrigatório" },
         { status: 400 }
       );
     }
 
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Gemini API Key não configurada no servidor" },
+        { status: 500 }
+      );
+    }
+
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Try models in order of preference (quota may vary)
-    const models = ["gemini-1.5-flash", "gemini-2.0-flash-lite", "gemini-2.0-flash"];
-    let model;
+    const models = [
+      "gemini-1.5-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-2.0-flash",
+    ];
     let result;
     let lastError;
 
     for (const modelName of models) {
       try {
-        model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({ model: modelName });
 
-    const prompt = `Você é um especialista em criar threads virais para Instagram/Twitter sobre qualquer tema.
+        const prompt = `Você é um especialista em criar threads virais para Instagram/Twitter sobre qualquer tema.
 
 O usuário quer criar um carrossel sobre: "${topic}"
 
@@ -58,10 +68,10 @@ Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
 O campo searchTerms deve conter 3 termos em inglês para buscar imagens relevantes ao tema no Unsplash.`;
 
         result = await model.generateContent(prompt);
-        break; // success, stop trying
+        break;
       } catch (e) {
         lastError = e;
-        continue; // try next model
+        continue;
       }
     }
 
@@ -71,7 +81,6 @@ O campo searchTerms deve conter 3 termos em inglês para buscar imagens relevant
 
     const text = result.response.text();
 
-    // Parse JSON from response
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return NextResponse.json(
@@ -81,7 +90,6 @@ O campo searchTerms deve conter 3 termos em inglês para buscar imagens relevant
     }
 
     const data = JSON.parse(jsonMatch[0]);
-
     return NextResponse.json(data);
   } catch (error: unknown) {
     console.error("Generate error:", error);

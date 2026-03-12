@@ -5,19 +5,11 @@ import { ProfileConfig } from "@/lib/types";
 interface ProfileFormProps {
   profile: ProfileConfig;
   onChange: (profile: ProfileConfig) => void;
-  geminiKey: string;
-  onGeminiKeyChange: (key: string) => void;
-  unsplashKey: string;
-  onUnsplashKeyChange: (key: string) => void;
 }
 
 export default function ProfileForm({
   profile,
   onChange,
-  geminiKey,
-  onGeminiKeyChange,
-  unsplashKey,
-  onUnsplashKeyChange,
 }: ProfileFormProps) {
   const handleHeadshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,51 +25,6 @@ export default function ProfileForm({
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-white">Configurações</h2>
-
-      {/* API Keys */}
-      <div className="space-y-3 p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
-        <h3 className="text-sm font-medium text-zinc-400">API Keys</h3>
-        <div>
-          <label className="block text-sm text-zinc-400 mb-1">
-            Gemini API Key
-          </label>
-          <input
-            type="password"
-            value={geminiKey}
-            onChange={(e) => onGeminiKeyChange(e.target.value)}
-            placeholder="AIza..."
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500"
-          />
-          <a
-            href="https://aistudio.google.com/apikey"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-400 hover:underline mt-1 inline-block"
-          >
-            Pegar chave grátis
-          </a>
-        </div>
-        <div>
-          <label className="block text-sm text-zinc-400 mb-1">
-            Unsplash Access Key
-          </label>
-          <input
-            type="password"
-            value={unsplashKey}
-            onChange={(e) => onUnsplashKeyChange(e.target.value)}
-            placeholder="Access Key"
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500"
-          />
-          <a
-            href="https://unsplash.com/developers"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-400 hover:underline mt-1 inline-block"
-          >
-            Criar app grátis
-          </a>
-        </div>
-      </div>
 
       {/* Profile */}
       <div className="space-y-3 p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
