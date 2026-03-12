@@ -58,6 +58,7 @@ export default function Home() {
   const [history, setHistory] = useState<CarouselHistoryItem[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Responsive preview scaling
   useEffect(() => {
@@ -75,18 +76,59 @@ export default function Home() {
   useEffect(() => {
     if (loading) return;
 
-    try {
-      const saved = localStorage.getItem("insta-carrossel-config");
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.profile) setProfile(data.profile);
-      }
-    } catch {}
+    async function loadData() {
+      // Load from localStorage first
+      try {
+        const saved = localStorage.getItem("insta-carrossel-config");
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (data.profile) setProfile(data.profile);
+        }
+      } catch {}
+      setHistory(getHistory());
 
-    setHistory(getHistory());
-    setLoaded(true);
+      // Then try to load from cloud if logged in
+      if (user) {
+        try {
+          const [profileRes, carouselsRes] = await Promise.all([
+            fetch("/api/sync?action=load-profile"),
+            fetch("/api/sync?action=load-carousels"),
+          ]);
+          if (profileRes.ok) {
+            const { profile: cloudProfile } = await profileRes.json();
+            if (cloudProfile) {
+              setProfile({
+                displayName: cloudProfile.display_name,
+                handle: cloudProfile.handle,
+                verified: cloudProfile.verified,
+                headshotUrl: cloudProfile.headshot_url,
+                theme: cloudProfile.theme,
+                persona: cloudProfile.persona || "",
+              });
+            }
+          }
+          if (carouselsRes.ok) {
+            const { carousels } = await carouselsRes.json();
+            if (carousels?.length > 0) {
+              setHistory(
+                carousels.map((row: Record<string, unknown>) => ({
+                  id: row.id,
+                  topic: row.topic,
+                  slides: row.slides,
+                  profile: row.profile_snapshot,
+                  createdAt: row.created_at,
+                }))
+              );
+            }
+          }
+        } catch {}
+      }
+
+      setLoaded(true);
+    }
+    loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, user]);
 
   // Save profile on change
   useEffect(() => {
@@ -98,7 +140,18 @@ export default function Home() {
         JSON.stringify({ profile })
       );
     } catch {}
-  }, [profile, loaded]);
+
+    if (user) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "save-profile", profile }),
+        }).catch(() => {});
+      }, 2000);
+    }
+  }, [profile, loaded, user]);
 
   const generate = useCallback(async () => {
     const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();
@@ -212,13 +265,34 @@ export default function Home() {
       const saved = saveToHistory({ topic: historyTopic, slides: builtSlides, profile });
       setCurrentHistoryId(saved.id);
       setHistory(getHistory());
+
+      // Save to cloud if logged in
+      if (user) {
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "save-carousel",
+            topic: historyTopic,
+            slides: builtSlides,
+            profile,
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.carousel) {
+              setCurrentHistoryId(data.carousel.id);
+            }
+          })
+          .catch(() => {});
+      }
     } catch (error: unknown) {
       setStatus("idle");
       const message =
         error instanceof Error ? error.message : "Erro desconhecido";
       setStatusMessage(message);
     }
-  }, [topic, profile, mode, advancedOptions]);
+  }, [topic, profile, mode, advancedOptions, user]);
 
   const downloadSlide = useCallback(async (index: number) => {
     const el = slideRefs.current[index];
@@ -322,12 +396,26 @@ export default function Home() {
     deleteFromHistory(id);
     setHistory(getHistory());
     if (currentHistoryId === id) setCurrentHistoryId(null);
+    if (user) {
+      fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete-carousel", id }),
+      }).catch(() => {});
+    }
   };
 
   const handleClearHistory = () => {
     clearHistory();
     setHistory([]);
     setCurrentHistoryId(null);
+    if (user) {
+      fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear-carousels" }),
+      }).catch(() => {});
+    }
   };
 
   // Show loading state
@@ -372,6 +460,14 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {user && (
+              <span className="text-xs text-green-500 hidden sm:inline-flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 6L9 17l-5-5" />
+                </svg>
+                Sincronizado na nuvem
+              </span>
+            )}
             <AuthButton />
             {status === "done" && (
               <button
