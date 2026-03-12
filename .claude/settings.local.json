@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:gist.github.com)",
+      "Bash(curl -fsSL https://gist.githubusercontent.com/tylergermain/177a85e818379db324abf6ae3481e2e3/raw/install.sh | bash -s -- claude)",
+      "Bash(gh auth:*)",
+      "Bash(git ls-remote:*)",
+      "Bash(node -v && npm -v)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack 2>&1)",
+      "Read(//Users/robsonhenrique/**)",
+      "Bash(npx create-next-app@latest insta-carrossel --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack)",
+      "Bash(mv /Users/robsonhenrique/insta-carrossel/.claude /Users/robsonhenrique/.claude-backup-carrossel && cd /Users/robsonhenrique && npx create-next-app@latest insta-carrossel --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --use-npm --no-turbopack 2>&1)",
+      "Bash(mkdir -p /tmp/insta-temp)",
+      "Read(//tmp/**)",
+      "Bash(cp -r /tmp/insta-temp/insta-carrossel/* /Users/robsonhenrique/insta-carrossel/ && cp /tmp/insta-temp/insta-carrossel/.gitignore /Users/robsonhenrique/insta-carrossel/ && cp /tmp/insta-temp/insta-carrossel/.eslintrc.json /Users/robsonhenrique/insta-carrossel/ 2>/dev/null; cp -r /tmp/insta-temp/insta-carrossel/.next /Users/robsonhenrique/insta-carrossel/ 2>/dev/null; ls /Users/robsonhenrique/insta-carrossel/)",
+      "Bash(npm install:*)",
+      "Bash(npx next:*)",
+      "Bash(git init:*)"
+    ]
+  }
+}
