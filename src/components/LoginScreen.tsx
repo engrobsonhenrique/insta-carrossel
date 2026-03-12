@@ -22,7 +22,7 @@ export default function LoginScreen() {
           </div>
           <h1 className="text-2xl font-bold text-white">Insta Carrossel</h1>
           <p className="text-sm text-zinc-500 mt-2">
-            Gere carrosseis de Instagram com IA
+            Gere carrosseis de Instagram com IA v2
           </p>
         </div>
 
