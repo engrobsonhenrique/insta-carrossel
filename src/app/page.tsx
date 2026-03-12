@@ -6,6 +6,7 @@ import CarouselSlide from "@/components/CarouselSlide";
 import ProfileForm from "@/components/ProfileForm";
 import CarouselHistory from "@/components/CarouselHistory";
 import AuthButton from "@/components/AuthButton";
+import LoginScreen from "@/components/LoginScreen";
 import { useAuth } from "@/components/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -33,7 +34,7 @@ import {
 type Status = "idle" | "generating" | "searching" | "building" | "done";
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [topic, setTopic] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [statusMessage, setStatusMessage] = useState("");
@@ -313,6 +314,20 @@ export default function Home() {
     setHistory([]);
     setCurrentHistoryId(null);
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Require login
+  if (!user) {
+    return <LoginScreen />;
+  }
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
