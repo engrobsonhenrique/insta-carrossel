@@ -9,6 +9,8 @@ async function downloadAsDataUrl(url: string): Promise<string | null> {
     });
     if (!res.ok) return null;
     const contentType = res.headers.get("content-type") || "image/jpeg";
+    // Reject non-image responses (e.g. HTML redirect/captcha pages)
+    if (!contentType.startsWith("image/")) return null;
     const buffer = Buffer.from(await res.arrayBuffer());
     return `data:${contentType};base64,${buffer.toString("base64")}`;
   } catch {
@@ -80,13 +82,15 @@ async function searchUnsplash(
       const data = await res.json();
       if (data.results && data.results.length > 0) {
         // Get up to 2 images per search term
-        const termImages = data.results
+        const termUrls = data.results
           .slice(0, 2)
           .map(
             (r: { urls?: { regular?: string } }) => r?.urls?.regular
           )
           .filter(Boolean) as string[];
-        images.push(...termImages);
+        // Download as base64 data URLs to avoid CORS issues with html-to-image
+        const downloads = await Promise.all(termUrls.map(downloadAsDataUrl));
+        images.push(...downloads.filter((d): d is string => d !== null));
       }
     } catch {
       continue;

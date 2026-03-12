@@ -39,19 +39,6 @@ export default function CarouselSlide({
         overflow: "hidden",
       }}
     >
-      {/* Slide counter */}
-      <div
-        style={{
-          position: "absolute",
-          top: 40,
-          right: 48,
-          fontSize: 28,
-          color: secondaryColor,
-          fontWeight: 500,
-        }}
-      >
-        {slideNumber}/{totalSlides}
-      </div>
 
       {/* Tweets container */}
       <div
@@ -165,7 +152,7 @@ export default function CarouselSlide({
         ))}
 
         {/* Slide image */}
-        {slide.imageUrl && (
+        {slide.imageUrl && !slide.imageUrl.startsWith("data:text/") && (
           <div
             style={{
               marginTop: 36,

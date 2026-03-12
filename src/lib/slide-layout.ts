@@ -13,13 +13,18 @@ export function buildSlides(
 ): SlideData[] {
   if (tweets.length === 0) return [];
 
+  // Filter out non-image data URLs (e.g. data:text/html from failed downloads)
+  const validImages = images.filter(
+    (url) => !url.startsWith("data:text/")
+  );
+
   const slides: SlideData[] = [];
   let slideId = 1;
   let imageIndex = 0;
 
   const getNextImage = (): string | undefined => {
-    if (imageIndex < images.length) {
-      return images[imageIndex++];
+    if (imageIndex < validImages.length) {
+      return validImages[imageIndex++];
     }
     return undefined;
   };

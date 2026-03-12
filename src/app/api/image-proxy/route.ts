@@ -19,6 +19,12 @@ export async function GET(req: NextRequest) {
     }
 
     const contentType = res.headers.get("content-type") || "image/jpeg";
+
+    // Reject non-image responses (HTML redirect/captcha pages)
+    if (!contentType.startsWith("image/")) {
+      return NextResponse.json({ error: "URL did not return an image" }, { status: 400 });
+    }
+
     const buffer = await res.arrayBuffer();
 
     return new NextResponse(buffer, {
