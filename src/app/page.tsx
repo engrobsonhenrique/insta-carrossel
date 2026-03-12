@@ -14,7 +14,11 @@ import {
   TweetData,
   SlideData,
   CarouselHistoryItem,
+  GenerationMode,
+  CTAType,
+  AdvancedOptions,
 } from "@/lib/types";
+import { splitTextIntoTweets, buildCTATweet } from "@/lib/text-splitter";
 import { buildSlides } from "@/lib/slide-layout";
 import {
   getHistory,
@@ -50,6 +54,10 @@ export default function Home() {
     verified: true,
     headshotUrl: null,
     theme: "dark",
+  });
+  const [mode, setMode] = useState<GenerationMode>("rapido");
+  const [advancedOptions, setAdvancedOptions] = useState<AdvancedOptions>({
+    ctaType: "salvar",
   });
   const [loaded, setLoaded] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -133,36 +141,68 @@ export default function Home() {
   }, [profile, loaded, user]);
 
   const generate = useCallback(async () => {
-    if (!topic.trim()) return;
+    const isPasteMode = mode === "avancado" && advancedOptions.pasteOwnText?.trim();
+    if (!isPasteMode && !topic.trim()) return;
+    if (isPasteMode && !advancedOptions.pasteOwnText?.trim()) return;
 
-    setStatus("generating");
-    const isUrl = /^https?:\/\//i.test(topic.trim());
-    setStatusMessage(isUrl ? "Lendo matéria e escrevendo thread..." : "Pesquisando e escrevendo thread...");
     setSlides([]);
     setTweets([]);
     setCurrentSlide(0);
     setSidebarOpen(false);
 
     try {
-      // Step 1: Generate thread (API keys are on server)
-      const genRes = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, persona: profile.persona }),
-      });
+      let tweetData: TweetData[];
+      let searchTerms: string[] | undefined;
 
-      if (!genRes.ok) {
-        const err = await genRes.json();
-        throw new Error(err.error || "Erro ao gerar conteúdo");
+      if (isPasteMode) {
+        // Paste mode: skip Gemini, split text into tweets locally
+        setStatus("building");
+        setStatusMessage("Formatando seu texto em slides...");
+
+        tweetData = splitTextIntoTweets(advancedOptions.pasteOwnText!);
+        // Add CTA tweet at the end
+        tweetData.push(buildCTATweet(advancedOptions.ctaType, advancedOptions.ctaCustomText));
+        setTweets(tweetData);
+
+        // Use topic as search term for images
+        if (topic.trim()) {
+          searchTerms = [topic.trim()];
+        }
+      } else {
+        // AI mode: generate via Gemini
+        setStatus("generating");
+        const isUrl = /^https?:\/\//i.test(topic.trim());
+        setStatusMessage(isUrl ? "Lendo matéria e escrevendo thread..." : "Pesquisando e escrevendo thread...");
+
+        const genBody: Record<string, string | undefined> = {
+          topic,
+          persona: profile.persona,
+        };
+        if (mode === "avancado") {
+          genBody.ctaType = advancedOptions.ctaType;
+          if (advancedOptions.ctaType === "custom") {
+            genBody.ctaCustomText = advancedOptions.ctaCustomText;
+          }
+        }
+
+        const genRes = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(genBody),
+        });
+
+        if (!genRes.ok) {
+          const err = await genRes.json();
+          throw new Error(err.error || "Erro ao gerar conteúdo");
+        }
+
+        const genData = await genRes.json();
+        tweetData = genData.tweets.map((t: { text: string }) => ({ text: t.text }));
+        searchTerms = genData.searchTerms;
+        setTweets(tweetData);
       }
 
-      const { tweets: generatedTweets, searchTerms } = await genRes.json();
-      const tweetData: TweetData[] = generatedTweets.map(
-        (t: { text: string }) => ({ text: t.text })
-      );
-      setTweets(tweetData);
-
-      // Step 2: Search images (API key is on server)
+      // Search images
       let images: string[] = [];
       if (searchTerms?.length) {
         setStatus("searching");
@@ -180,7 +220,7 @@ export default function Home() {
         }
       }
 
-      // Step 3: Build slides
+      // Build slides
       setStatus("building");
       setStatusMessage("Montando slides...");
 
@@ -192,10 +232,11 @@ export default function Home() {
       );
 
       // Save to history
+      const historyTopic = topic.trim() || "Texto colado";
       if (user) {
         const supabase = createClient();
         const saved = await saveCloudCarousel(supabase, {
-          topic,
+          topic: historyTopic,
           slides: builtSlides,
           profile,
         });
@@ -205,7 +246,7 @@ export default function Home() {
           setHistory(cloudHistory);
         }
       } else {
-        const saved = saveToHistory({ topic, slides: builtSlides, profile });
+        const saved = saveToHistory({ topic: historyTopic, slides: builtSlides, profile });
         setCurrentHistoryId(saved.id);
         setHistory(getHistory());
       }
@@ -215,7 +256,7 @@ export default function Home() {
         error instanceof Error ? error.message : "Erro desconhecido";
       setStatusMessage(message);
     }
-  }, [topic, profile, user]);
+  }, [topic, profile, user, mode, advancedOptions]);
 
   const downloadSlide = useCallback(async (index: number) => {
     const el = slideRefs.current[index];
@@ -460,13 +501,41 @@ export default function Home() {
         </aside>
 
         <div className="flex-1 space-y-4 md:space-y-6 min-w-0">
+          {/* Mode toggle */}
+          <div className="flex gap-1 bg-zinc-900 rounded-xl p-1 w-fit">
+            <button
+              onClick={() => setMode("rapido")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                mode === "rapido"
+                  ? "bg-blue-500 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Rapido
+            </button>
+            <button
+              onClick={() => setMode("avancado")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                mode === "avancado"
+                  ? "bg-blue-500 text-white"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Avancado
+            </button>
+          </div>
+
           <div className="flex gap-2 md:gap-3">
             <input
               type="text"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && generate()}
-              placeholder="Digite o tema ou cole o link de uma matéria..."
+              placeholder={
+                mode === "avancado" && advancedOptions.pasteOwnText?.trim()
+                  ? "Titulo do carrossel (opcional)..."
+                  : "Digite o tema ou cole o link de uma materia..."
+              }
               className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 md:px-4 py-3 text-sm md:text-base text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
             />
             <button
@@ -477,6 +546,79 @@ export default function Home() {
               {status === "idle" || status === "done" ? "Gerar" : "Gerando..."}
             </button>
           </div>
+
+          {/* Advanced options */}
+          {mode === "avancado" && (
+            <div className="space-y-4 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+              {/* CTA selection */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">
+                  Call-to-Action (ultimo slide)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: "salvar", label: "Salvar" },
+                    { value: "compartilhar", label: "Compartilhar" },
+                    { value: "comentar", label: "Comentar" },
+                    { value: "custom", label: "Personalizado" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() =>
+                        setAdvancedOptions((prev) => ({
+                          ...prev,
+                          ctaType: opt.value,
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        advancedOptions.ctaType === opt.value
+                          ? "bg-blue-500 text-white"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {advancedOptions.ctaType === "custom" && (
+                  <input
+                    type="text"
+                    value={advancedOptions.ctaCustomText || ""}
+                    onChange={(e) =>
+                      setAdvancedOptions((prev) => ({
+                        ...prev,
+                        ctaCustomText: e.target.value,
+                      }))
+                    }
+                    placeholder="Ex: Comente SIM para receber o material completo!"
+                    className="w-full mt-2 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500"
+                  />
+                )}
+              </div>
+
+              {/* Paste own text */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">
+                  Colar meu proprio texto
+                </label>
+                <p className="text-xs text-zinc-500 mb-2">
+                  Cole seu texto pronto e vamos formatar em slides automaticamente. O campo acima vira o titulo.
+                </p>
+                <textarea
+                  value={advancedOptions.pasteOwnText || ""}
+                  onChange={(e) =>
+                    setAdvancedOptions((prev) => ({
+                      ...prev,
+                      pasteOwnText: e.target.value,
+                    }))
+                  }
+                  placeholder="Cole aqui seu texto longo..."
+                  rows={6}
+                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 resize-none"
+                />
+              </div>
+            </div>
+          )}
 
           {statusMessage && (
             <div
@@ -653,10 +795,10 @@ export default function Home() {
                 <path d="M7 2v20M17 2v20" />
               </svg>
               <p className="text-base md:text-lg">
-                Digite um tema e clique em Gerar
+                Digite um tema, cole um link ou use o modo Avancado
               </p>
               <p className="text-sm mt-1">
-                O carrossel será criado automaticamente
+                O carrossel sera criado automaticamente
               </p>
             </div>
           )}

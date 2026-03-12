@@ -1,3 +1,13 @@
+export type GenerationMode = "rapido" | "avancado";
+
+export type CTAType = "salvar" | "compartilhar" | "comentar" | "custom";
+
+export interface AdvancedOptions {
+  ctaType: CTAType;
+  ctaCustomText?: string;
+  pasteOwnText?: string;
+}
+
 export interface ProfileConfig {
   displayName: string;
   handle: string;
