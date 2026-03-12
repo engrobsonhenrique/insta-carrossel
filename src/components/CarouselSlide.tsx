@@ -2,6 +2,11 @@
 
 import { SlideData, ProfileConfig } from "@/lib/types";
 
+function proxyUrl(url: string): string {
+  if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
+
 interface CarouselSlideProps {
   slide: SlideData;
   profile: ProfileConfig;
@@ -98,13 +103,14 @@ export default function CarouselSlide({
               >
                 {profile.headshotUrl && (
                   <img
-                    src={profile.headshotUrl}
+                    src={proxyUrl(profile.headshotUrl)}
                     alt=""
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
                     }}
+                    crossOrigin="anonymous"
                   />
                 )}
               </div>
@@ -176,7 +182,7 @@ export default function CarouselSlide({
             }}
           >
             <img
-              src={slide.imageUrl}
+              src={proxyUrl(slide.imageUrl)}
               alt=""
               style={{
                 width: "100%",
