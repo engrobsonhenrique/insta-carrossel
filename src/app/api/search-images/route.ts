@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 
 const UNSPLASH_BASE = "https://api.unsplash.com";
 
+async function downloadAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; CarouselBot/1.0)" },
+    });
+    if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+    const buffer = Buffer.from(await res.arrayBuffer());
+    return `data:${contentType};base64,${buffer.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
 async function searchTavily(
   searchTerms: string[],
   apiKey: string
@@ -27,13 +41,16 @@ async function searchTavily(
 
       const data = await res.json();
       if (data.images && data.images.length > 0) {
-        const termImages = data.images
+        const urls = data.images
           .slice(0, 2)
           .map((img: string | { url: string }) =>
             typeof img === "string" ? img : img.url
           )
           .filter((url: string) => url && url.startsWith("http"));
-        images.push(...termImages);
+
+        // Download images and convert to base64 data URLs
+        const downloads = await Promise.all(urls.map(downloadAsDataUrl));
+        images.push(...downloads.filter((d): d is string => d !== null));
       }
     } catch {
       continue;
