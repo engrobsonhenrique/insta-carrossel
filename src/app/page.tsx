@@ -5,6 +5,9 @@ import { toPng } from "html-to-image";
 import CarouselSlide from "@/components/CarouselSlide";
 import ProfileForm from "@/components/ProfileForm";
 import CarouselHistory from "@/components/CarouselHistory";
+import AuthButton from "@/components/AuthButton";
+import { useAuth } from "@/components/AuthProvider";
+import { createClient } from "@/lib/supabase/client";
 import {
   ProfileConfig,
   TweetData,
@@ -18,10 +21,19 @@ import {
   deleteFromHistory,
   clearHistory,
 } from "@/lib/carousel-history";
+import {
+  loadProfile as loadCloudProfile,
+  saveProfile as saveCloudProfile,
+  loadCarousels as loadCloudCarousels,
+  saveCarousel as saveCloudCarousel,
+  deleteCarousel as deleteCloudCarousel,
+  clearCarousels as clearCloudCarousels,
+} from "@/lib/supabase/sync";
 
 type Status = "idle" | "generating" | "searching" | "building" | "done";
 
 export default function Home() {
+  const { user } = useAuth();
   const [topic, setTopic] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [statusMessage, setStatusMessage] = useState("");
@@ -46,6 +58,7 @@ export default function Home() {
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [history, setHistory] = useState<CarouselHistoryItem[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Responsive preview scaling
   useEffect(() => {
@@ -59,31 +72,65 @@ export default function Home() {
     return () => observer.disconnect();
   }, [slides]);
 
-  // Load from localStorage on mount
+  // Load data on mount and when user changes (login/logout)
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("insta-carrossel-config");
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.geminiKey) setGeminiKey(data.geminiKey);
-        if (data.unsplashKey) setUnsplashKey(data.unsplashKey);
-        if (data.profile) setProfile(data.profile);
+    async function loadData() {
+      if (user) {
+        // Load from Supabase
+        const supabase = createClient();
+        const cloudProfile = await loadCloudProfile(supabase);
+        if (cloudProfile) {
+          setProfile(cloudProfile.profile);
+          setGeminiKey(cloudProfile.geminiKey);
+          setUnsplashKey(cloudProfile.unsplashKey);
+        }
+        const cloudHistory = await loadCloudCarousels(supabase);
+        if (cloudHistory.length > 0) {
+          setHistory(cloudHistory);
+        } else {
+          // Migrate localStorage to cloud on first login
+          const localHistory = getHistory();
+          setHistory(localHistory);
+        }
+      } else {
+        // Load from localStorage
+        try {
+          const saved = localStorage.getItem("insta-carrossel-config");
+          if (saved) {
+            const data = JSON.parse(saved);
+            if (data.geminiKey) setGeminiKey(data.geminiKey);
+            if (data.unsplashKey) setUnsplashKey(data.unsplashKey);
+            if (data.profile) setProfile(data.profile);
+          }
+        } catch {}
+        setHistory(getHistory());
       }
-    } catch {}
-    setHistory(getHistory());
-    setLoaded(true);
-  }, []);
+      setLoaded(true);
+    }
+    loadData();
+  }, [user]);
 
-  // Save to localStorage on change
+  // Save config on change (debounced for Supabase, immediate for localStorage)
   useEffect(() => {
     if (!loaded) return;
+
+    // Always save to localStorage as cache
     try {
       localStorage.setItem(
         "insta-carrossel-config",
         JSON.stringify({ geminiKey, unsplashKey, profile })
       );
     } catch {}
-  }, [geminiKey, unsplashKey, profile, loaded]);
+
+    // Save to Supabase (debounced)
+    if (user) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(async () => {
+        const supabase = createClient();
+        await saveCloudProfile(supabase, profile, geminiKey, unsplashKey);
+      }, 2000);
+    }
+  }, [geminiKey, unsplashKey, profile, loaded, user]);
 
   const generate = useCallback(async () => {
     if (!topic.trim()) return;
@@ -145,16 +192,30 @@ export default function Home() {
       );
 
       // Save to history
-      const saved = saveToHistory({ topic, slides: builtSlides, profile });
-      setCurrentHistoryId(saved.id);
-      setHistory(getHistory());
+      if (user) {
+        const supabase = createClient();
+        const saved = await saveCloudCarousel(supabase, {
+          topic,
+          slides: builtSlides,
+          profile,
+        });
+        if (saved) {
+          setCurrentHistoryId(saved.id);
+          const cloudHistory = await loadCloudCarousels(supabase);
+          setHistory(cloudHistory);
+        }
+      } else {
+        const saved = saveToHistory({ topic, slides: builtSlides, profile });
+        setCurrentHistoryId(saved.id);
+        setHistory(getHistory());
+      }
     } catch (error: unknown) {
       setStatus("idle");
       const message =
         error instanceof Error ? error.message : "Erro desconhecido";
       setStatusMessage(message);
     }
-  }, [topic, geminiKey, unsplashKey, profile]);
+  }, [topic, geminiKey, unsplashKey, profile, user]);
 
   const downloadSlide = useCallback(async (index: number) => {
     const el = slideRefs.current[index];
@@ -234,13 +295,24 @@ export default function Home() {
     setSidebarOpen(false);
   };
 
-  const handleDeleteHistory = (id: string) => {
-    deleteFromHistory(id);
-    setHistory(getHistory());
+  const handleDeleteHistory = async (id: string) => {
+    if (user) {
+      const supabase = createClient();
+      await deleteCloudCarousel(supabase, id);
+      const cloudHistory = await loadCloudCarousels(supabase);
+      setHistory(cloudHistory);
+    } else {
+      deleteFromHistory(id);
+      setHistory(getHistory());
+    }
     if (currentHistoryId === id) setCurrentHistoryId(null);
   };
 
-  const handleClearHistory = () => {
+  const handleClearHistory = async () => {
+    if (user) {
+      const supabase = createClient();
+      await clearCloudCarousels(supabase);
+    }
     clearHistory();
     setHistory([]);
     setCurrentHistoryId(null);
@@ -252,7 +324,6 @@ export default function Home() {
       <header className="border-b border-zinc-800 px-4 md:px-6 py-3 md:py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            {/* Mobile menu button */}
             <button
               onClick={() => setSidebarOpen(true)}
               className="md:hidden p-2 -ml-2 text-zinc-400 hover:text-white"
@@ -274,17 +345,20 @@ export default function Home() {
               </p>
             </div>
           </div>
-          {status === "done" && (
-            <button
-              onClick={downloadAllAsZip}
-              disabled={downloading}
-              className="bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
-            >
-              {downloading
-                ? `Baixando... ${downloadProgress}%`
-                : "Baixar ZIP"}
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            <AuthButton />
+            {status === "done" && (
+              <button
+                onClick={downloadAllAsZip}
+                disabled={downloading}
+                className="bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
+              >
+                {downloading
+                  ? `Baixando... ${downloadProgress}%`
+                  : "Baixar ZIP"}
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -307,7 +381,6 @@ export default function Home() {
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
           `}
         >
-          {/* Close button mobile */}
           <button
             onClick={() => setSidebarOpen(false)}
             className="md:hidden absolute top-3 right-3 p-2 text-zinc-400 hover:text-white"
@@ -324,6 +397,22 @@ export default function Home() {
           </button>
 
           <div className="space-y-6 mt-8 md:mt-0">
+            {user && (
+              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-xs text-green-400 flex items-center gap-2">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                Sincronizado na nuvem
+              </div>
+            )}
             <ProfileForm
               profile={profile}
               onChange={setProfile}
@@ -386,7 +475,6 @@ export default function Home() {
           {/* Carousel preview */}
           {slides.length > 0 && (
             <div className="space-y-4">
-              {/* Slide navigation */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex gap-1.5 md:gap-2 flex-wrap">
                   {slides.map((_, i) => (
@@ -411,9 +499,7 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Slide preview + edit */}
               <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
-                {/* The actual slide (scaled for preview) */}
                 <div className="flex-1" ref={previewRef}>
                   <div
                     className="rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl mx-auto"
@@ -440,7 +526,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Edit panel */}
                 <div className="w-full lg:w-72 space-y-3">
                   <h3 className="text-sm font-medium text-zinc-400">
                     Editar slide {currentSlide + 1}
@@ -482,13 +567,8 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Hidden renders for download */}
               <div
-                style={{
-                  position: "absolute",
-                  left: "-9999px",
-                  top: 0,
-                }}
+                style={{ position: "absolute", left: "-9999px", top: 0 }}
               >
                 {slides.map((slide, i) => (
                   <div

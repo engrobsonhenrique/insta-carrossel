@@ -20,7 +20,8 @@
       "Bash(vercel login:*)",
       "Bash(brew install:*)",
       "Bash(gh repo:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)"
     ]
   }
 }
