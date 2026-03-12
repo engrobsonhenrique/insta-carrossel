@@ -21,7 +21,10 @@
       "Bash(brew install:*)",
       "Bash(gh repo:*)",
       "Bash(git add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(curl -s -X POST http://localhost:3000/api/generate -H \"Content-Type: application/json\" -d '{\"topic\":\"teste rápido\"}' 2>&1 | head -5)",
+      "Bash(curl -s -X POST http://localhost:3000/api/search-images -H \"Content-Type: application/json\" -d '{\"searchTerms\":[\"technology\"]}' 2>&1)",
+      "Bash(sleep 3 && cat /tmp/vercel-login.log 2>/dev/null; jobs -l 2>/dev/null)"
     ]
   }
 }
