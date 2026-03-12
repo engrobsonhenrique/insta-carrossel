@@ -1,6 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+function isUrl(text: string): boolean {
+  return /^https?:\/\//i.test(text.trim());
+}
+
+async function extractArticleContent(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; CarouselBot/1.0)",
+        Accept: "text/html",
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+
+    const html = await res.text();
+
+    // Remove scripts, styles, and HTML tags to get plain text
+    const cleaned = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+      .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+      .replace(/<header[\s\S]*?<\/header>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Limit to ~8000 chars to fit in prompt
+    return cleaned.slice(0, 8000);
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { topic } = await req.json();
@@ -20,6 +62,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // If input is a URL, extract the article content
+    let articleContent: string | null = null;
+    if (isUrl(topic)) {
+      articleContent = await extractArticleContent(topic);
+      if (!articleContent) {
+        return NextResponse.json(
+          { error: "Não foi possível acessar o conteúdo do link. Verifique a URL e tente novamente." },
+          { status: 400 }
+        );
+      }
+    }
+
     const genAI = new GoogleGenerativeAI(apiKey);
     const models = [
       "gemini-1.5-flash",
@@ -29,13 +83,17 @@ export async function POST(req: NextRequest) {
     let result;
     let lastError;
 
+    const topicInstruction = articleContent
+      ? `O usuário enviou um link de uma matéria/reportagem. Baseie o carrossel no conteúdo abaixo:\n\n---\n${articleContent}\n---`
+      : `O usuário quer criar um carrossel sobre: "${topic}"`;
+
     for (const modelName of models) {
       try {
         const model = genAI.getGenerativeModel({ model: modelName });
 
         const prompt = `Você é um especialista em criar threads virais para Instagram/Twitter sobre qualquer tema.
 
-O usuário quer criar um carrossel sobre: "${topic}"
+${topicInstruction}
 
 Crie uma thread com 6-8 tweets sobre esse tema. A thread deve seguir esta estrutura:
 

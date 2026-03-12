@@ -136,7 +136,8 @@ export default function Home() {
     if (!topic.trim()) return;
 
     setStatus("generating");
-    setStatusMessage("Pesquisando e escrevendo thread...");
+    const isUrl = /^https?:\/\//i.test(topic.trim());
+    setStatusMessage(isUrl ? "Lendo matéria e escrevendo thread..." : "Pesquisando e escrevendo thread...");
     setSlides([]);
     setTweets([]);
     setCurrentSlide(0);
@@ -465,7 +466,7 @@ export default function Home() {
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && generate()}
-              placeholder="Digite o tema do carrossel..."
+              placeholder="Digite o tema ou cole o link de uma matéria..."
               className="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-3 md:px-4 py-3 text-sm md:text-base text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
             />
             <button
