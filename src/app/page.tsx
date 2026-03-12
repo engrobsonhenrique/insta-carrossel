@@ -75,39 +75,61 @@ export default function Home() {
   // Load data on mount and when user changes (login/logout)
   useEffect(() => {
     async function loadData() {
+      // Always load localStorage first (fast cache)
+      let localGemini = "";
+      let localUnsplash = "";
+      let localProfile: ProfileConfig | null = null;
+      try {
+        const saved = localStorage.getItem("insta-carrossel-config");
+        if (saved) {
+          const data = JSON.parse(saved);
+          localGemini = data.geminiKey || "";
+          localUnsplash = data.unsplashKey || "";
+          localProfile = data.profile || null;
+        }
+      } catch {}
+
       if (user) {
-        // Load from Supabase
         const supabase = createClient();
         const cloudProfile = await loadCloudProfile(supabase);
-        if (cloudProfile) {
+
+        if (cloudProfile && (cloudProfile.geminiKey || cloudProfile.unsplashKey)) {
+          // Cloud has keys — use cloud data
           setProfile(cloudProfile.profile);
           setGeminiKey(cloudProfile.geminiKey);
           setUnsplashKey(cloudProfile.unsplashKey);
+        } else {
+          // First login or cloud is empty — migrate localStorage to cloud
+          if (localProfile) setProfile(localProfile);
+          if (localGemini) setGeminiKey(localGemini);
+          if (localUnsplash) setUnsplashKey(localUnsplash);
+
+          // Push local data to cloud
+          await saveCloudProfile(
+            supabase,
+            localProfile || profile,
+            localGemini,
+            localUnsplash
+          );
         }
+
         const cloudHistory = await loadCloudCarousels(supabase);
         if (cloudHistory.length > 0) {
           setHistory(cloudHistory);
         } else {
-          // Migrate localStorage to cloud on first login
           const localHistory = getHistory();
           setHistory(localHistory);
         }
       } else {
-        // Load from localStorage
-        try {
-          const saved = localStorage.getItem("insta-carrossel-config");
-          if (saved) {
-            const data = JSON.parse(saved);
-            if (data.geminiKey) setGeminiKey(data.geminiKey);
-            if (data.unsplashKey) setUnsplashKey(data.unsplashKey);
-            if (data.profile) setProfile(data.profile);
-          }
-        } catch {}
+        if (localProfile) setProfile(localProfile);
+        if (localGemini) setGeminiKey(localGemini);
+        if (localUnsplash) setUnsplashKey(localUnsplash);
         setHistory(getHistory());
       }
       setLoaded(true);
     }
     loadData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Save config on change (debounced for Supabase, immediate for localStorage)
