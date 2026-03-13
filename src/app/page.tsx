@@ -920,12 +920,28 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
-                <button
-                  onClick={() => downloadSlide(currentSlide)}
-                  className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm transition-colors whitespace-nowrap"
-                >
-                  Baixar {currentSlide + 1}
-                </button>
+                <div className="flex gap-2">
+                  {slides.length > 1 && (
+                    <button
+                      onClick={() => {
+                        const newSlides = slides.filter((_, i) => i !== currentSlide);
+                        setSlides(newSlides);
+                        if (currentSlide >= newSlides.length) {
+                          setCurrentSlide(newSlides.length - 1);
+                        }
+                      }}
+                      className="bg-red-600/20 hover:bg-red-600/30 text-red-400 px-3 py-2 rounded-lg text-xs md:text-sm transition-colors whitespace-nowrap"
+                    >
+                      Excluir slide
+                    </button>
+                  )}
+                  <button
+                    onClick={() => downloadSlide(currentSlide)}
+                    className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm transition-colors whitespace-nowrap"
+                  >
+                    Baixar {currentSlide + 1}
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
@@ -1056,6 +1072,41 @@ export default function Home() {
                         </button>
                       )}
                     </div>
+                    {slides[currentSlide].imageUrl && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-zinc-500">Altura da imagem</label>
+                          <button
+                            onClick={() => {
+                              const newSlides = [...slides];
+                              newSlides[currentSlide] = {
+                                ...newSlides[currentSlide],
+                                imageHeight: undefined,
+                              };
+                              setSlides(newSlides);
+                            }}
+                            className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+                          >
+                            Resetar
+                          </button>
+                        </div>
+                        <input
+                          type="range"
+                          min={150}
+                          max={800}
+                          value={slides[currentSlide].imageHeight || 400}
+                          onChange={(e) => {
+                            const newSlides = [...slides];
+                            newSlides[currentSlide] = {
+                              ...newSlides[currentSlide],
+                              imageHeight: Number(e.target.value),
+                            };
+                            setSlides(newSlides);
+                          }}
+                          className="w-full accent-blue-500"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

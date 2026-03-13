@@ -101,8 +101,9 @@ export default function CarouselSlide({
                   marginBottom: 24,
                   borderRadius: 20,
                   overflow: "hidden",
-                  flex: 1,
-                  minHeight: 0,
+                  ...(slide.imageHeight
+                    ? { height: slide.imageHeight, flexShrink: 0 }
+                    : { flex: 1, minHeight: 0 }),
                 }}
               >
                 <img
@@ -277,7 +278,7 @@ export default function CarouselSlide({
               marginTop: 36,
               borderRadius: 20,
               overflow: "hidden",
-              maxHeight: slide.tweets[0].text.length > 200 ? 400 : 550,
+              maxHeight: slide.imageHeight || (slide.tweets[0].text.length > 200 ? 400 : 550),
             }}
           >
             <img

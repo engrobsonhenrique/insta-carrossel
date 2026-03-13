@@ -46,6 +46,7 @@ export interface SlideData {
   id: number;
   tweets: TweetData[];
   imageUrl?: string;
+  imageHeight?: number;
   isHook: boolean;
   isCTA: boolean;
   contentStyle?: ContentStyle;
