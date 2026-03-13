@@ -93,7 +93,10 @@ export async function POST(req: NextRequest) {
       : "";
 
     const hookInstruction = selectedHook
-      ? `\nHEADLINE ESCOLHIDA PELO USUÁRIO (use como base dos textos 1 e 2 do slide 1):\n"${selectedHook}"\n`
+      ? `\nHEADLINE ESCOLHIDA PELO USUÁRIO — OBRIGATÓRIO:
+O texto 1 DEVE ser exatamente: "${selectedHook.split("\n")[0]}"
+${selectedHook.includes("\n") ? `O texto 2 DEVE ser exatamente: "${selectedHook.split("\n")[1]}"` : "O texto 2 deve desenvolver essa headline."}
+NÃO modifique esses textos. Use-os literalmente como os primeiros blocos do slide 1.\n`
       : "";
 
     const ctaInstruction = ctaCustomText

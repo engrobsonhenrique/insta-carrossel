@@ -123,11 +123,18 @@ const TWITTER_TEMPLATE_LAYOUT: SlideLayout[] = [
   { textIndices: [20], boldIndices: [], imageAfter: -1, isCTA: true },
 ];
 
+function cleanMarkdown(text: string): string {
+  return text.replace(/\*\*/g, "").replace(/\*/g, "").replace(/__/g, "").trim();
+}
+
 export function buildPersuasiveSlides(
   texts: string[],
   images: string[]
 ): SlideData[] {
   if (texts.length === 0) return [];
+
+  // Clean markdown from all texts
+  texts = texts.map(cleanMarkdown);
 
   const validImages = images.filter(
     (url) => !url.startsWith("data:text/")
