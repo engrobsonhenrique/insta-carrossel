@@ -63,99 +63,86 @@ export default function CarouselSlide({
         overflow: "hidden" as const,
       };
 
-      // HOOK SLIDE: full-bleed image + overlay branding + large text below
+      // HOOK SLIDE: full-bleed image + gradient + text overlay
       if (slide.isHook) {
-        // Combine all hook text for adaptive sizing
-        const hookText = textEls.map(e => e.content || "").join(" ");
-        const hookFontSize = hookText.length > 120 ? 42 : hookText.length > 70 ? 48 : 52;
+        const hookBoldEls = textEls.filter(e => e.bold);
+        const hookRegularEls = textEls.filter(e => !e.bold);
+        const hookBoldText = hookBoldEls.map(e => e.content || "").join(" ");
+        const hookFontSize = hookBoldText.length > 140 ? 40 : hookBoldText.length > 90 ? 46 : 54;
 
         return (
           <div className="carousel-slide" style={baseSlideStyle}>
-            {showImg ? (
-              <div
+            {/* Full-bleed background image */}
+            {showImg && (
+              <img
+                src={slide.imageUrl}
+                alt=""
                 style={{
-                  flex: 1,
-                  position: "relative",
-                  minHeight: 0,
-                  overflow: "hidden",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
                 }}
-              >
-                <img
-                  src={slide.imageUrl}
-                  alt=""
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                />
-                {/* Gradient overlay for text readability */}
-                <div
+              />
+            )}
+            {/* Gradient overlay bottom 65% */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: "65%",
+                background: "linear-gradient(transparent, rgba(0,0,0,0.88))",
+              }}
+            />
+            {/* Text content pinned to bottom */}
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                padding: "0 64px 60px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                textAlign: "center",
+              }}
+            >
+              {/* Subtitle (regular text) */}
+              {hookRegularEls.map((el, i) => (
+                <p
+                  key={`reg-${i}`}
                   style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    height: 200,
-                    background: `linear-gradient(transparent, ${bgColor}cc)`,
-                  }}
-                />
-                {/* Branding overlay on image */}
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 24,
-                    left: 40,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    backgroundColor: "rgba(0,0,0,0.6)",
-                    padding: "8px 16px",
-                    borderRadius: 8,
+                    fontSize: 28,
+                    lineHeight: 1.3,
+                    color: "#ffffff",
+                    fontWeight: 500,
+                    margin: 0,
+                    marginBottom: 16,
+                    textTransform: "uppercase" as const,
+                    letterSpacing: 1,
+                    opacity: 0.9,
                   }}
                 >
-                  {profile.headshotUrl && (
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: "50%",
-                        overflow: "hidden",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <img
-                        src={profile.headshotUrl}
-                        alt=""
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
-                      />
-                    </div>
-                  )}
-                  <span style={{ fontSize: 22, color: "#ffffff", fontWeight: 600 }}>
-                    @{profile.handle}
-                  </span>
-                  {profile.verified && (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill={badgeColor}>
-                      <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z" />
-                    </svg>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div style={{ flex: 1 }} />
-            )}
-            {/* Hook text at bottom */}
-            <div style={{ padding: "40px 64px 64px", flexShrink: 0 }}>
-              {textEls.map((el, i) => (
+                  {el.content}
+                </p>
+              ))}
+              {/* Main hook (bold text) */}
+              {hookBoldEls.map((el, i) => (
                 <p
-                  key={`text-${i}`}
+                  key={`bold-${i}`}
                   style={{
                     fontSize: hookFontSize,
-                    lineHeight: 1.15,
-                    color: textColor,
-                    fontWeight: 800,
+                    lineHeight: 1.08,
+                    color: "#ffffff",
+                    fontWeight: 900,
                     margin: 0,
-                    marginTop: i > 0 ? 12 : 0,
+                    textTransform: "uppercase" as const,
+                    letterSpacing: -0.5,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
                   }}
@@ -163,6 +150,42 @@ export default function CarouselSlide({
                   {el.content}
                 </p>
               ))}
+              {/* Branding */}
+              <div
+                style={{
+                  marginTop: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                {profile.headshotUrl && (
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      flexShrink: 0,
+                      border: "2px solid rgba(255,255,255,0.3)",
+                    }}
+                  >
+                    <img
+                      src={profile.headshotUrl}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </div>
+                )}
+                <span style={{ fontSize: 24, color: "#ffffff", fontWeight: 600 }}>
+                  @{profile.handle}
+                </span>
+                {profile.verified && (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill={badgeColor}>
+                    <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z" />
+                  </svg>
+                )}
+              </div>
             </div>
           </div>
         );
