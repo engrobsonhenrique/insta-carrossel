@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export const runtime = "edge";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
@@ -19,12 +18,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceKey) {
+      return NextResponse.json(
+        { error: "Supabase não configurado no servidor." },
+        { status: 500 }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const base64 = image.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const buffer = Buffer.from(base64, "base64");
 
     const path = `carousel-images/${fileName}`;
 
