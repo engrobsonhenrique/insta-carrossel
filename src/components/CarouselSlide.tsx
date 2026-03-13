@@ -26,6 +26,7 @@ export default function CarouselSlide({
 
   if (isPersuasivo) {
     const block = slide.persuasiveBlock!;
+    const hasImage = slide.imageUrl && !slide.imageUrl.startsWith("data:text/");
     return (
       <div
         className="carousel-slide"
@@ -35,8 +36,7 @@ export default function CarouselSlide({
           backgroundColor: bgColor,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "flex-start",
-          padding: "80px 64px 60px",
+          padding: "60px 64px 60px",
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           position: "relative",
@@ -49,7 +49,8 @@ export default function CarouselSlide({
             display: "flex",
             alignItems: "center",
             gap: 16,
-            marginBottom: 36,
+            marginBottom: 32,
+            flexShrink: 0,
           }}
         >
           <div
@@ -88,26 +89,28 @@ export default function CarouselSlide({
         {/* Text Above Image */}
         <p
           style={{
-            fontSize: 38,
-            lineHeight: 1.45,
+            fontSize: 36,
+            lineHeight: 1.4,
             color: textColor,
             margin: 0,
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
+            flexShrink: 0,
           }}
         >
           {block.textAbove}
         </p>
 
-        {/* Image */}
-        {slide.imageUrl && !slide.imageUrl.startsWith("data:text/") && (
+        {/* Image — expands to fill available space */}
+        {hasImage ? (
           <div
             style={{
-              marginTop: 32,
+              marginTop: 28,
+              marginBottom: 28,
               borderRadius: 20,
               overflow: "hidden",
-              maxHeight: 420,
-              flexShrink: 0,
+              flex: 1,
+              minHeight: 0,
             }}
           >
             <img
@@ -116,6 +119,8 @@ export default function CarouselSlide({
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           </div>
+        ) : (
+          <div style={{ flex: 1 }} />
         )}
 
         {/* Text Below Image (Bold Anchor) */}
@@ -126,7 +131,7 @@ export default function CarouselSlide({
             color: textColor,
             fontWeight: 700,
             margin: 0,
-            marginTop: slide.imageUrl ? 32 : "auto",
+            flexShrink: 0,
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
           }}
