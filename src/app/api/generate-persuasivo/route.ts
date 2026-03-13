@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+export const maxDuration = 60;
+
 function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim());
 }
