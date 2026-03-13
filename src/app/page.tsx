@@ -104,7 +104,10 @@ export default function Home() {
 
   // Publish to Instagram via Blotato
   const publishToInstagram = useCallback(async (scheduledTime?: string) => {
-    const images: string[] = [];
+    // Step 1: Render slides to PNG and upload each one individually
+    const timestamp = Date.now().toString(36);
+    const mediaUrls: string[] = [];
+
     for (let i = 0; i < slides.length; i++) {
       const el = slideRefs.current[i];
       if (!el) continue;
@@ -113,9 +116,30 @@ export default function Home() {
         height: 1350,
         pixelRatio: 1,
       });
-      images.push(dataUrl);
+
+      const uploadRes = await fetch("/api/upload-slide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image: dataUrl,
+          fileName: `${timestamp}-slide-${i + 1}.png`,
+        }),
+      });
+
+      if (!uploadRes.ok) {
+        let errMsg = "Erro no upload da imagem";
+        try {
+          const err = await uploadRes.json();
+          errMsg = err.error || errMsg;
+        } catch { /* ignore */ }
+        throw new Error(`Slide ${i + 1}: ${errMsg}`);
+      }
+
+      const { url } = await uploadRes.json();
+      mediaUrls.push(url);
     }
 
+    // Step 2: Publish via Blotato with the uploaded URLs
     const res = await fetch("/api/publish-instagram", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -123,14 +147,18 @@ export default function Home() {
         blotatoApiKey: profile.blotatoApiKey,
         blotatoAccountId: profile.blotatoAccountId,
         caption,
-        images,
+        mediaUrls,
         scheduledTime,
       }),
     });
 
     if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error || "Erro ao publicar");
+      let errMsg = "Erro ao publicar";
+      try {
+        const data = await res.json();
+        errMsg = data.error || errMsg;
+      } catch { /* ignore */ }
+      throw new Error(errMsg);
     }
   }, [slides, profile.blotatoApiKey, profile.blotatoAccountId, caption]);
 
