@@ -185,6 +185,7 @@ NÃO modifique esses textos. Use-os literalmente como os primeiros blocos do sli
 
     // Build the texts array placeholder for JSON output
     const textsPlaceholder = Array.from({ length: config.textCount }, (_, i) => `"t${i + 1}"`).join(",");
+    const searchPlaceholder = Array.from({ length: config.searchCount }, (_, i) => `"eng term ${i + 1}"`).join(",");
 
     const prompt = `Crie ${config.textCount} textos curtos em PT-BR para um carrossel persuasivo sobre o tema abaixo.${personaInstruction}
 
@@ -195,14 +196,12 @@ Texto ${config.textCount}: ${ctaInstruction}
 Sem 2a pessoa. Sem inventar fatos. Sem markdown. Sem emojis excessivos.
 ${captionInstruction}
 Retorne APENAS JSON valido (sem markdown, sem \`\`\`):
-{"texts":[${textsPlaceholder}],"searchTerms":["eng term 1","eng term 2","eng term 3","eng term 4","eng term 5"]${captionFormat ? ',"caption":"legenda"' : ""}}
+{"texts":[${textsPlaceholder}],"searchTerms":[${searchPlaceholder}]${captionFormat ? ',"caption":"legenda"' : ""}}
 
-O campo searchTerms deve conter ${config.searchCount} termos em inglês para buscar fotos relevantes (1 por slide com imagem). REGRAS:
-- Descreva CENAS ou OBJETOS VISUAIS concretos (ex: "doctor examining patient hospital", "smartphone data analytics dashboard")
-- NÃO use conceitos abstratos (ex: "success", "power", "growth")
-- 3-5 palavras descritivas por termo
-- Cada termo deve corresponder ao conteúdo do slide respectivo
-- Pense: "que foto ilustraria bem este slide?"`;
+searchTerms: ${config.searchCount} termos em inglês para buscar fotos. REGRAS:
+- Descreva CENAS ou OBJETOS concretos (ex: "doctor examining patient hospital")
+- NÃO use conceitos abstratos (ex: "success", "growth")
+- 3-5 palavras por termo`;
 
 
     let result;
