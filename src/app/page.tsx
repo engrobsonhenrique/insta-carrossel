@@ -10,6 +10,7 @@ import LoginScreen from "@/components/LoginScreen";
 import { useAuth } from "@/components/AuthProvider";
 import {
   ProfileConfig,
+  ProfileStore,
   TweetData,
   SlideData,
   CarouselHistoryItem,
@@ -29,6 +30,17 @@ import {
   deleteFromHistory,
   clearHistory,
 } from "@/lib/carousel-history";
+import {
+  loadProfileStore,
+  saveProfileStore,
+  getActiveProfile,
+  addProfile,
+  updateProfile,
+  deleteProfile,
+  switchProfile,
+  sanitizeProfileForHistory,
+} from "@/lib/profile-store";
+import PublishModal from "@/components/PublishModal";
 
 type Status = "idle" | "generating-hooks" | "selecting-hook" | "generating" | "searching" | "building" | "done";
 
@@ -43,13 +55,8 @@ export default function Home() {
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const previewRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(0.5);
-  const [profile, setProfile] = useState<ProfileConfig>({
-    displayName: "Seu Nome",
-    handle: "seuhandle",
-    verified: true,
-    headshotUrl: null,
-    theme: "dark",
-  });
+  const [profileStore, setProfileStore] = useState<ProfileStore | null>(null);
+  const [showPublish, setShowPublish] = useState(false);
   const [mode, setMode] = useState<GenerationMode>("rapido");
   const [advancedOptions, setAdvancedOptions] = useState<AdvancedOptions>({
     ctaType: "salvar",
@@ -63,6 +70,69 @@ export default function Home() {
   const [caption, setCaption] = useState("");
   const [hookOptions, setHookOptions] = useState<HookOption[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derive active profile from store
+  const profile: ProfileConfig = profileStore
+    ? getActiveProfile(profileStore)
+    : {
+        id: "default",
+        displayName: "Seu Nome",
+        handle: "seuhandle",
+        verified: true,
+        headshotUrl: null,
+        theme: "dark",
+      };
+
+  const hasBlotatoConfig = !!(profile.blotatoApiKey && profile.blotatoAccountId);
+
+  // Profile management handlers
+  const handleProfileChange = useCallback((updated: ProfileConfig) => {
+    setProfileStore((prev) => (prev ? updateProfile(prev, updated) : prev));
+  }, []);
+
+  const handleProfileSwitch = useCallback((profileId: string) => {
+    setProfileStore((prev) => (prev ? switchProfile(prev, profileId) : prev));
+  }, []);
+
+  const handleProfileCreate = useCallback(() => {
+    setProfileStore((prev) => (prev ? addProfile(prev) : prev));
+  }, []);
+
+  const handleProfileDelete = useCallback((profileId: string) => {
+    setProfileStore((prev) => (prev ? deleteProfile(prev, profileId) : prev));
+  }, []);
+
+  // Publish to Instagram via Blotato
+  const publishToInstagram = useCallback(async (scheduledTime?: string) => {
+    const images: string[] = [];
+    for (let i = 0; i < slides.length; i++) {
+      const el = slideRefs.current[i];
+      if (!el) continue;
+      const dataUrl = await toPng(el, {
+        width: 1080,
+        height: 1350,
+        pixelRatio: 1,
+      });
+      images.push(dataUrl);
+    }
+
+    const res = await fetch("/api/publish-instagram", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        blotatoApiKey: profile.blotatoApiKey,
+        blotatoAccountId: profile.blotatoAccountId,
+        caption,
+        images,
+        scheduledTime,
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Erro ao publicar");
+    }
+  }, [slides, profile.blotatoApiKey, profile.blotatoAccountId, caption]);
 
   // Responsive preview scaling
   useEffect(() => {
@@ -81,14 +151,9 @@ export default function Home() {
     if (loading) return;
 
     async function loadData() {
-      // Load from localStorage first
-      try {
-        const saved = localStorage.getItem("insta-carrossel-config");
-        if (saved) {
-          const data = JSON.parse(saved);
-          if (data.profile) setProfile(data.profile);
-        }
-      } catch {}
+      // Load profiles from localStorage
+      const store = loadProfileStore();
+      setProfileStore(store);
       setHistory(getHistory());
 
       // Then try to load from cloud if logged in
@@ -101,14 +166,19 @@ export default function Home() {
           if (profileRes.ok) {
             const { profile: cloudProfile } = await profileRes.json();
             if (cloudProfile) {
-              setProfile({
-                displayName: cloudProfile.display_name,
-                handle: cloudProfile.handle,
-                verified: cloudProfile.verified,
-                headshotUrl: cloudProfile.headshot_url,
-                theme: cloudProfile.theme,
-                persona: cloudProfile.persona || "",
-                paletteId: cloudProfile.palette_id || undefined,
+              setProfileStore((prev) => {
+                if (!prev) return prev;
+                const active = getActiveProfile(prev);
+                return updateProfile(prev, {
+                  ...active,
+                  displayName: cloudProfile.display_name,
+                  handle: cloudProfile.handle,
+                  verified: cloudProfile.verified,
+                  headshotUrl: cloudProfile.headshot_url,
+                  theme: cloudProfile.theme,
+                  persona: cloudProfile.persona || "",
+                  paletteId: cloudProfile.palette_id || undefined,
+                });
               });
             }
           }
@@ -135,28 +205,24 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user]);
 
-  // Save profile on change
+  // Save profile store on change
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || !profileStore) return;
 
-    try {
-      localStorage.setItem(
-        "insta-carrossel-config",
-        JSON.stringify({ profile })
-      );
-    } catch {}
+    saveProfileStore(profileStore);
 
     if (user) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
+        const activeProfile = getActiveProfile(profileStore);
         fetch("/api/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "save-profile", profile }),
+          body: JSON.stringify({ action: "save-profile", profile: activeProfile }),
         }).catch(() => {});
       }, 2000);
     }
-  }, [profile, loaded, user]);
+  }, [profileStore, loaded, user]);
 
   const generateCarousel = useCallback(async (selectedHook?: string) => {
     const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();
@@ -320,7 +386,7 @@ export default function Home() {
 
       // Save to history
       const historyTopic = topic.trim() || "Texto colado";
-      const saved = saveToHistory({ topic: historyTopic, slides: builtSlides, profile });
+      const saved = saveToHistory({ topic: historyTopic, slides: builtSlides, profile: sanitizeProfileForHistory(profile) });
       setCurrentHistoryId(saved.id);
       setHistory(getHistory());
 
@@ -598,15 +664,23 @@ export default function Home() {
             )}
             <AuthButton />
             {status === "done" && (
-              <button
-                onClick={downloadAllAsZip}
-                disabled={downloading}
-                className="bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
-              >
-                {downloading
-                  ? `Baixando... ${downloadProgress}%`
-                  : "Baixar ZIP"}
-              </button>
+              <>
+                <button
+                  onClick={() => setShowPublish(true)}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                  Publicar
+                </button>
+                <button
+                  onClick={downloadAllAsZip}
+                  disabled={downloading}
+                  className="bg-green-600 hover:bg-green-500 disabled:bg-green-800 text-white px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                  {downloading
+                    ? `Baixando... ${downloadProgress}%`
+                    : "Baixar ZIP"}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -646,8 +720,11 @@ export default function Home() {
 
           <div className="space-y-6 mt-8 md:mt-0">
             <ProfileForm
-              profile={profile}
-              onChange={setProfile}
+              store={profileStore || { profiles: [profile], activeProfileId: profile.id }}
+              onProfileChange={handleProfileChange}
+              onProfileSwitch={handleProfileSwitch}
+              onProfileCreate={handleProfileCreate}
+              onProfileDelete={handleProfileDelete}
             />
             <CarouselHistory
               history={history}
@@ -1232,6 +1309,15 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      <PublishModal
+        isOpen={showPublish}
+        onClose={() => setShowPublish(false)}
+        onPublish={publishToInstagram}
+        slideCount={slides.length}
+        caption={caption}
+        hasBlotatoConfig={hasBlotatoConfig}
+      />
     </main>
   );
 }

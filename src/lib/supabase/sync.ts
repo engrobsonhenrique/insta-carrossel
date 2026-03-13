@@ -15,6 +15,7 @@ export async function loadProfile(
 
   return {
     profile: {
+      id: userId,
       displayName: data.display_name,
       handle: data.handle,
       verified: data.verified,

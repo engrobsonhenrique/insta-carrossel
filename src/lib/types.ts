@@ -43,6 +43,7 @@ export interface AdvancedOptions {
 }
 
 export interface ProfileConfig {
+  id: string;
   displayName: string;
   handle: string;
   verified: boolean;
@@ -50,6 +51,13 @@ export interface ProfileConfig {
   theme: "light" | "dark";
   persona?: string;
   paletteId?: string;
+  blotatoApiKey?: string;
+  blotatoAccountId?: string;
+}
+
+export interface ProfileStore {
+  profiles: ProfileConfig[];
+  activeProfileId: string;
 }
 
 export interface TweetData {

@@ -40,6 +40,8 @@ export function saveToHistory(data: {
         data.profile.headshotUrl && data.profile.headshotUrl.startsWith("data:")
           ? null
           : data.profile.headshotUrl,
+      blotatoApiKey: undefined,
+      blotatoAccountId: undefined,
     },
     createdAt: new Date().toISOString(),
   };
