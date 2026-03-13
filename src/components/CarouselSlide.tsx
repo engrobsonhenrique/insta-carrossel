@@ -31,8 +31,255 @@ export default function CarouselSlide({
     const hasImage = slide.imageUrl && !slide.imageUrl.startsWith("data:text/");
     const imageElIdx = elements.findIndex(e => e.type === "image");
 
-    // Autoral template: accent bar top, bold in accent color, editorial, no avatar
+    // Autoral template: editorial, BrandsDecoded-inspired
     if (templateId === "autoral") {
+      const currentYear = new Date().getFullYear();
+      const textEls = elements.filter(e => e.type === "text");
+      const showImg = hasImage && elements.some(e => e.type === "image");
+
+      const editorialHeader = (
+        <>
+          <div style={{ height: 6, backgroundColor: badgeColor, flexShrink: 0 }} />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "20px 64px",
+              flexShrink: 0,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 20,
+                color: secondaryColor,
+                fontWeight: 500,
+                textTransform: "uppercase" as const,
+                letterSpacing: 2,
+              }}
+            >
+              @{profile.handle}
+            </span>
+            <span
+              style={{
+                fontSize: 20,
+                color: secondaryColor,
+                fontWeight: 600,
+                textTransform: "uppercase" as const,
+                letterSpacing: 3,
+              }}
+            >
+              {profile.displayName}
+            </span>
+            <span
+              style={{
+                fontSize: 20,
+                color: secondaryColor,
+                fontWeight: 500,
+                textTransform: "uppercase" as const,
+                letterSpacing: 2,
+              }}
+            >
+              ©COPYRIGHT {currentYear}
+            </span>
+          </div>
+        </>
+      );
+
+      const slideFontFamily =
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+      // HOOK SLIDE: big image + overlay branding + large text below
+      if (slide.isHook) {
+        return (
+          <div
+            className="carousel-slide"
+            style={{
+              width: 1080,
+              height: 1350,
+              backgroundColor: bgColor,
+              display: "flex",
+              flexDirection: "column",
+              padding: 0,
+              fontFamily: slideFontFamily,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {editorialHeader}
+            {showImg ? (
+              <div
+                style={{
+                  flex: 1,
+                  position: "relative",
+                  minHeight: 0,
+                  overflow: "hidden",
+                }}
+              >
+                <img
+                  src={slide.imageUrl}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+                {/* Branding overlay on image */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 24,
+                    left: 40,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    backgroundColor: "rgba(0,0,0,0.6)",
+                    padding: "8px 16px",
+                    borderRadius: 8,
+                  }}
+                >
+                  {profile.headshotUrl && (
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        overflow: "hidden",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <img
+                        src={profile.headshotUrl}
+                        alt=""
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                        }}
+                      />
+                    </div>
+                  )}
+                  <span
+                    style={{
+                      fontSize: 22,
+                      color: "#ffffff",
+                      fontWeight: 600,
+                    }}
+                  >
+                    @{profile.handle}
+                  </span>
+                  {profile.verified && (
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill={badgeColor}
+                    >
+                      <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ flex: 1 }} />
+            )}
+            {/* Hook text at bottom */}
+            <div style={{ padding: "36px 64px 60px", flexShrink: 0 }}>
+              {textEls.map((el, i) => (
+                <p
+                  key={`text-${i}`}
+                  style={{
+                    fontSize: 52,
+                    lineHeight: 1.15,
+                    color: textColor,
+                    fontWeight: 800,
+                    margin: 0,
+                    marginTop: i > 0 ? 12 : 0,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {el.content}
+                </p>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      // CTA SLIDE: centered, bold accent text + avatar
+      if (slide.isCTA) {
+        return (
+          <div
+            className="carousel-slide"
+            style={{
+              width: 1080,
+              height: 1350,
+              backgroundColor: bgColor,
+              display: "flex",
+              flexDirection: "column",
+              padding: 0,
+              fontFamily: slideFontFamily,
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {editorialHeader}
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: "0 80px 60px",
+                textAlign: "center",
+              }}
+            >
+              {profile.headshotUrl && (
+                <div
+                  style={{
+                    width: 120,
+                    height: 120,
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    marginBottom: 40,
+                    flexShrink: 0,
+                  }}
+                >
+                  <img
+                    src={profile.headshotUrl}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                </div>
+              )}
+              {textEls.map((el, i) => (
+                <p
+                  key={`text-${i}`}
+                  style={{
+                    fontSize: 52,
+                    lineHeight: 1.2,
+                    color: badgeColor,
+                    fontWeight: 800,
+                    margin: 0,
+                    marginTop: i > 0 ? 20 : 0,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {el.content}
+                </p>
+              ))}
+            </div>
+          </div>
+        );
+      }
+
+      // REGULAR CONTENT SLIDES
+      const isTextOnly = !showImg;
+
       return (
         <div
           className="carousel-slide"
@@ -43,66 +290,46 @@ export default function CarouselSlide({
             display: "flex",
             flexDirection: "column",
             padding: 0,
-            fontFamily:
-              '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            fontFamily: slideFontFamily,
             position: "relative",
             overflow: "hidden",
           }}
         >
-          {/* Accent bar on top */}
-          <div
-            style={{
-              height: 6,
-              backgroundColor: badgeColor,
-              flexShrink: 0,
-            }}
-          />
-
-          {/* Small branding header */}
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "16px 64px",
-              flexShrink: 0,
-            }}
-          >
-            <span style={{ fontSize: 22, color: secondaryColor, fontWeight: 500 }}>
-              @{profile.handle}
-            </span>
-          </div>
-
-          {/* Content area */}
+          {editorialHeader}
           <div
             style={{
               flex: 1,
               display: "flex",
               flexDirection: "column",
               padding: "0 64px 60px",
+              justifyContent: isTextOnly ? "center" : "flex-start",
               minHeight: 0,
             }}
           >
             {elements.map((el, elIdx) => {
               if (el.type === "image") {
-                if (!hasImage) return null;
+                if (!showImg) return null;
                 return (
                   <div
                     key={`img-${elIdx}`}
                     style={{
-                      marginTop: 20,
-                      marginBottom: 20,
+                      marginTop: 28,
+                      marginBottom: 28,
                       borderRadius: 16,
                       overflow: "hidden",
                       ...(slide.imageHeight
                         ? { height: slide.imageHeight, flexShrink: 0 }
-                        : { flex: 1, minHeight: 0 }),
+                        : { flex: 1, minHeight: 250 }),
                     }}
                   >
                     <img
                       src={slide.imageUrl}
                       alt=""
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
                     />
                   </div>
                 );
@@ -112,12 +339,14 @@ export default function CarouselSlide({
                 <p
                   key={`text-${elIdx}`}
                   style={{
-                    fontSize: el.bold ? 52 : 34,
-                    lineHeight: el.bold ? 1.15 : 1.4,
+                    fontSize: el.bold
+                      ? (isTextOnly ? 56 : 52)
+                      : (isTextOnly ? 42 : 38),
+                    lineHeight: el.bold ? 1.15 : 1.35,
                     color: el.bold ? badgeColor : textColor,
                     fontWeight: el.bold ? 800 : 400,
                     margin: 0,
-                    marginTop: elIdx === 0 ? 0 : 20,
+                    marginTop: elIdx === 0 ? 0 : 28,
                     flexShrink: 0,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
@@ -127,8 +356,6 @@ export default function CarouselSlide({
                 </p>
               );
             })}
-
-            {imageElIdx === -1 && <div style={{ flex: 1 }} />}
           </div>
         </div>
       );
@@ -221,7 +448,7 @@ export default function CarouselSlide({
                     overflow: "hidden",
                     ...(slide.imageHeight
                       ? { height: slide.imageHeight, flexShrink: 0 }
-                      : { flex: 1, minHeight: 0 }),
+                      : { flex: 1, minHeight: 200 }),
                   }}
                 >
                   <img
@@ -233,16 +460,20 @@ export default function CarouselSlide({
               );
             }
 
+            const principalTextOnly = !hasImage || imageElIdx === -1;
+
             return (
               <p
                 key={`text-${elIdx}`}
                 style={{
-                  fontSize: el.bold ? 36 : 34,
-                  lineHeight: el.bold ? 1.3 : 1.4,
-                  color: textColor,
-                  fontWeight: el.bold ? 700 : 400,
+                  fontSize: el.bold
+                    ? (principalTextOnly ? 52 : 48)
+                    : (principalTextOnly ? 40 : 36),
+                  lineHeight: el.bold ? 1.2 : 1.4,
+                  color: el.bold ? badgeColor : textColor,
+                  fontWeight: el.bold ? 800 : 400,
                   margin: 0,
-                  marginTop: elIdx === 0 ? 0 : 16,
+                  marginTop: elIdx === 0 ? 0 : 24,
                   flexShrink: 0,
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
@@ -402,7 +633,7 @@ export default function CarouselSlide({
                   overflow: "hidden",
                   ...(slide.imageHeight
                     ? { height: slide.imageHeight, flexShrink: 0 }
-                    : { flex: 1, minHeight: 0 }),
+                    : { flex: 1, minHeight: 200 }),
                 }}
               >
                 <img
@@ -414,16 +645,20 @@ export default function CarouselSlide({
             );
           }
 
+          const twitterTextOnly = !hasImage || imageElIdx === -1;
+
           return (
             <p
               key={`text-${elIdx}`}
               style={{
-                fontSize: el.bold ? 36 : 34,
-                lineHeight: el.bold ? 1.3 : 1.4,
+                fontSize: el.bold
+                  ? (twitterTextOnly ? 48 : 44)
+                  : (twitterTextOnly ? 38 : 34),
+                lineHeight: el.bold ? 1.2 : 1.4,
                 color: textColor,
                 fontWeight: el.bold ? 700 : 400,
                 margin: 0,
-                marginTop: elIdx === 0 ? 0 : 16,
+                marginTop: elIdx === 0 ? 0 : 20,
                 flexShrink: 0,
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
