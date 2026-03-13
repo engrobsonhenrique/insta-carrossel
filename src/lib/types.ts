@@ -41,6 +41,12 @@ export interface CarouselData {
   profile: ProfileConfig;
 }
 
+export interface HookOption {
+  id: number;
+  text: string;
+  style: string;
+}
+
 export interface CarouselHistoryItem {
   id: string;
   topic: string;

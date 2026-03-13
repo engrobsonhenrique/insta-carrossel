@@ -45,7 +45,7 @@ async function extractArticleContent(url: string): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, persona, ctaType, ctaCustomText, captionFormat } = await req.json();
+    const { topic, persona, ctaType, ctaCustomText, captionFormat, selectedHook } = await req.json();
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!topic) {
@@ -101,7 +101,11 @@ ${topicInstruction}
 
 Crie uma thread com 6-8 tweets sobre esse tema. A thread deve seguir esta estrutura:
 
-1. **Hook** (Tweet 1): Uma frase impactante e curiosa que prende a atenção. Deve ser curta e poderosa.
+1. **Hook** (Tweet 1): ${
+          selectedHook
+            ? `Use EXATAMENTE este texto como o primeiro tweet (hook), sem modificar: "${selectedHook}"`
+            : "Uma frase impactante e curiosa que prende a atenção. Deve ser curta e poderosa."
+        }
 2. **Body** (Tweets 2-6/7): Conteúdo informativo, dados, fatos interessantes. Cada tweet deve ter entre 80-280 caracteres.
 3. **CTA** (Último tweet): ${
           ctaCustomText

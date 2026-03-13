@@ -17,8 +17,10 @@ import {
   CTAType,
   CaptionFormat,
   AdvancedOptions,
+  HookOption,
 } from "@/lib/types";
 import { splitTextIntoTweets, buildCTATweet } from "@/lib/text-splitter";
+import HookSelector from "@/components/HookSelector";
 import { buildSlides } from "@/lib/slide-layout";
 import {
   getHistory,
@@ -27,7 +29,7 @@ import {
   clearHistory,
 } from "@/lib/carousel-history";
 
-type Status = "idle" | "generating" | "searching" | "building" | "done";
+type Status = "idle" | "generating-hooks" | "selecting-hook" | "generating" | "searching" | "building" | "done";
 
 export default function Home() {
   const { user, loading } = useAuth();
@@ -58,6 +60,7 @@ export default function Home() {
   const [history, setHistory] = useState<CarouselHistoryItem[]>([]);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const [hookOptions, setHookOptions] = useState<HookOption[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Responsive preview scaling
@@ -153,7 +156,7 @@ export default function Home() {
     }
   }, [profile, loaded, user]);
 
-  const generate = useCallback(async () => {
+  const generateCarousel = useCallback(async (selectedHook?: string) => {
     const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();
     if (!isPasteMode && !topic.trim()) return;
     if (isPasteMode && !advancedOptions.pasteOwnText?.trim()) return;
@@ -163,27 +166,24 @@ export default function Home() {
     setCaption("");
     setCurrentSlide(0);
     setSidebarOpen(false);
+    setHookOptions([]);
 
     try {
       let tweetData: TweetData[];
       let searchTerms: string[] | undefined;
 
       if (isPasteMode) {
-        // Paste mode: skip Gemini, split text into tweets locally
         setStatus("building");
         setStatusMessage("Formatando seu texto em slides...");
 
         tweetData = splitTextIntoTweets(advancedOptions.pasteOwnText!);
-        // Add CTA tweet at the end
         tweetData.push(buildCTATweet(advancedOptions.ctaType, advancedOptions.ctaCustomText));
         setTweets(tweetData);
 
-        // Use topic as search term for images
         if (topic.trim()) {
           searchTerms = [topic.trim()];
         }
       } else {
-        // AI mode: generate via Gemini
         setStatus("generating");
         const isUrl = /^https?:\/\//i.test(topic.trim());
         setStatusMessage(isUrl ? "Lendo matéria e escrevendo thread..." : "Pesquisando e escrevendo thread...");
@@ -191,6 +191,7 @@ export default function Home() {
         const genBody: Record<string, string | undefined> = {
           topic,
           persona: profile.persona,
+          selectedHook,
         };
         if (mode === "avancado") {
           genBody.ctaType = advancedOptions.ctaType;
@@ -293,6 +294,72 @@ export default function Home() {
       setStatusMessage(message);
     }
   }, [topic, profile, mode, advancedOptions, user]);
+
+  const generate = useCallback(async () => {
+    const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();
+
+    // In advanced mode (non-paste), generate hooks first
+    if (mode === "avancado" && !isPasteMode && topic.trim()) {
+      setSlides([]);
+      setTweets([]);
+      setCaption("");
+      setHookOptions([]);
+      setStatus("generating-hooks");
+      setStatusMessage("Gerando opções de hook...");
+
+      try {
+        const res = await fetch("/api/generate-hooks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic, persona: profile.persona }),
+        });
+
+        if (!res.ok) {
+          let errMsg = "Erro ao gerar hooks";
+          try {
+            const err = await res.json();
+            errMsg = err.error || errMsg;
+          } catch {
+            errMsg = await res.text().catch(() => errMsg);
+          }
+          throw new Error(errMsg);
+        }
+
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error("Resposta inválida. Tente novamente.");
+        }
+
+        if (data.hooks?.length > 0) {
+          setHookOptions(data.hooks);
+          setStatus("selecting-hook");
+          setStatusMessage("");
+          return;
+        }
+      } catch (error: unknown) {
+        setStatus("idle");
+        const message =
+          error instanceof Error ? error.message : "Erro desconhecido";
+        setStatusMessage(message);
+        return;
+      }
+    }
+
+    // Rapido mode or paste mode: generate directly
+    generateCarousel();
+  }, [topic, profile, mode, advancedOptions, generateCarousel]);
+
+  const handleHookSelect = useCallback((hookText: string) => {
+    setHookOptions([]);
+    generateCarousel(hookText);
+  }, [generateCarousel]);
+
+  const handleHookSkip = useCallback(() => {
+    setHookOptions([]);
+    generateCarousel();
+  }, [generateCarousel]);
 
   const downloadSlide = useCallback(async (index: number) => {
     const el = slideRefs.current[index];
@@ -571,10 +638,10 @@ export default function Home() {
             />
             <button
               onClick={generate}
-              disabled={status !== "idle" && status !== "done"}
+              disabled={status !== "idle" && status !== "done" && status !== "selecting-hook"}
               className="bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white px-4 md:px-6 py-3 rounded-xl text-sm md:text-base font-medium transition-colors whitespace-nowrap"
             >
-              {status === "idle" || status === "done" ? "Gerar" : "Gerando..."}
+              {status === "idle" || status === "done" || status === "selecting-hook" ? "Gerar" : "Gerando..."}
             </button>
           </div>
 
@@ -713,6 +780,19 @@ export default function Home() {
             </div>
           )}
 
+          {status === "selecting-hook" && hookOptions.length > 0 && (
+            <HookSelector
+              hooks={hookOptions}
+              onSelect={handleHookSelect}
+              onSkip={handleHookSkip}
+              onCancel={() => {
+                setHookOptions([]);
+                setStatus("idle");
+                setStatusMessage("");
+              }}
+            />
+          )}
+
           {statusMessage && (
             <div
               className={`text-sm px-4 py-2 rounded-lg ${
@@ -724,6 +804,7 @@ export default function Home() {
               }`}
             >
               {(status === "generating" ||
+                status === "generating-hooks" ||
                 status === "searching" ||
                 status === "building") && (
                 <span className="inline-block animate-spin mr-2">&#9696;</span>
