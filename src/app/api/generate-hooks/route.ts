@@ -186,10 +186,11 @@ Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
     }
 
     const rawText = result.response.text();
+    console.error("generate-hooks raw response:", rawText.slice(0, 500));
     const data = extractJSON(rawText);
     if (!data) {
       return NextResponse.json(
-        { error: "Formato inválido. Tente novamente." },
+        { error: `Formato inválido. Resposta: ${rawText.slice(0, 200)}` },
         { status: 500 }
       );
     }
