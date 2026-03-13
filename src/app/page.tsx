@@ -174,104 +174,68 @@ export default function Home() {
     return () => observer.disconnect();
   }, [slides]);
 
+  // Helper: strip base64 headshots for cloud sync
+  const stripHeadshotsForCloud = useCallback((store: ProfileStore): ProfileStore => ({
+    ...store,
+    profiles: store.profiles.map((p) => ({
+      ...p,
+      headshotUrl:
+        p.headshotUrl && p.headshotUrl.startsWith("data:") ? null : p.headshotUrl,
+    })),
+  }), []);
+
+  // Helper: save ProfileStore to Supabase (awaited, with error logging)
+  const syncToCloud = useCallback(async (store: ProfileStore) => {
+    try {
+      const cloudStore = stripHeadshotsForCloud(store);
+      const activeProfile = getActiveProfile(cloudStore);
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save-profile",
+          profile: activeProfile,
+          profilesData: cloudStore,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        console.error("Cloud sync failed:", res.status, err);
+      }
+    } catch (e) {
+      console.error("Cloud sync error:", e);
+    }
+  }, [stripHeadshotsForCloud]);
+
   // Load data on mount
   useEffect(() => {
     if (loading) return;
 
     async function loadData() {
-      // Load profiles from localStorage
-      const store = loadProfileStore();
-      setProfileStore(store);
+      // Load from localStorage as immediate fallback
+      const localStore = loadProfileStore();
       setHistory(getHistory());
 
-      // Then try to load from cloud if logged in
       if (user) {
         try {
+          // Load from Supabase (source of truth)
           const [profileRes, carouselsRes] = await Promise.all([
             fetch("/api/sync?action=load-profile"),
             fetch("/api/sync?action=load-carousels"),
           ]);
           if (profileRes.ok) {
-            const { profilesData, profile: cloudProfile } = await profileRes.json();
+            const { profilesData } = await profileRes.json();
             if (profilesData && profilesData.profiles?.length > 0) {
-              // Full ProfileStore from cloud
-              // Use cloud if local is default (1 profile, no persona)
-              const localIsDefault =
-                store.profiles.length === 1 &&
-                !store.profiles[0].persona &&
-                !store.profiles[0].blotatoApiKey;
-              if (localIsDefault) {
-                setProfileStore(profilesData);
-                saveProfileStore(profilesData);
-              } else {
-                // Local has richer data — push to cloud
-                const activeProfile = getActiveProfile(store);
-                const cloudStore = {
-                  ...store,
-                  profiles: store.profiles.map((p) => ({
-                    ...p,
-                    headshotUrl:
-                      p.headshotUrl && p.headshotUrl.startsWith("data:")
-                        ? null
-                        : p.headshotUrl,
-                  })),
-                };
-                fetch("/api/sync", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    action: "save-profile",
-                    profile: activeProfile,
-                    profilesData: cloudStore,
-                  }),
-                }).catch(() => {});
-              }
-            } else if (cloudProfile) {
-              // Cloud has no profilesData yet — check if local has richer data
-              const localHasData =
-                store.profiles.length > 1 ||
-                store.profiles[0].persona ||
-                store.profiles[0].blotatoApiKey;
-              if (localHasData) {
-                // Push local to cloud
-                const activeProfile = getActiveProfile(store);
-                const cloudStore = {
-                  ...store,
-                  profiles: store.profiles.map((p) => ({
-                    ...p,
-                    headshotUrl:
-                      p.headshotUrl && p.headshotUrl.startsWith("data:")
-                        ? null
-                        : p.headshotUrl,
-                  })),
-                };
-                fetch("/api/sync", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    action: "save-profile",
-                    profile: activeProfile,
-                    profilesData: cloudStore,
-                  }),
-                }).catch(() => {});
-              } else {
-                // Local is default, use cloud legacy fields
-                setProfileStore((prev) => {
-                  if (!prev) return prev;
-                  const active = getActiveProfile(prev);
-                  return updateProfile(prev, {
-                    ...active,
-                    displayName: cloudProfile.display_name,
-                    handle: cloudProfile.handle,
-                    verified: cloudProfile.verified,
-                    headshotUrl: cloudProfile.headshot_url,
-                    theme: cloudProfile.theme,
-                    persona: cloudProfile.persona || "",
-                    paletteId: cloudProfile.palette_id || undefined,
-                  });
-                });
-              }
+              // Cloud has data — use it
+              setProfileStore(profilesData);
+              saveProfileStore(profilesData);
+            } else {
+              // Cloud has no profilesData — use local and push to cloud
+              setProfileStore(localStore);
+              syncToCloud(localStore);
             }
+          } else {
+            setProfileStore(localStore);
           }
           if (carouselsRes.ok) {
             const { carousels } = await carouselsRes.json();
@@ -287,7 +251,11 @@ export default function Home() {
               );
             }
           }
-        } catch {}
+        } catch {
+          setProfileStore(localStore);
+        }
+      } else {
+        setProfileStore(localStore);
       }
 
       setLoaded(true);
@@ -296,39 +264,21 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user]);
 
-  // Save profile store on change
+  // Save profile store on every change
   useEffect(() => {
     if (!loaded || !profileStore) return;
 
+    // Always save to localStorage
     saveProfileStore(profileStore);
 
+    // Debounce cloud sync
     if (user) {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
-        const activeProfile = getActiveProfile(profileStore);
-        // Strip headshot base64 from cloud sync (too large)
-        const cloudStore = {
-          ...profileStore,
-          profiles: profileStore.profiles.map((p) => ({
-            ...p,
-            headshotUrl:
-              p.headshotUrl && p.headshotUrl.startsWith("data:")
-                ? null
-                : p.headshotUrl,
-          })),
-        };
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "save-profile",
-            profile: activeProfile,
-            profilesData: cloudStore,
-          }),
-        }).catch(() => {});
+        syncToCloud(profileStore);
       }, 2000);
     }
-  }, [profileStore, loaded, user]);
+  }, [profileStore, loaded, user, syncToCloud]);
 
   const generateCarousel = useCallback(async (selectedHook?: string) => {
     const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();

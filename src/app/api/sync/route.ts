@@ -63,12 +63,15 @@ export async function POST(req: NextRequest) {
 
   if (action === "save-profile") {
     const { profile, profilesData } = body;
+    const headshotUrl = profile.headshotUrl && profile.headshotUrl.startsWith("data:")
+      ? null
+      : profile.headshotUrl;
     const upsertData: Record<string, unknown> = {
       id: userId,
       display_name: profile.displayName,
       handle: profile.handle,
       verified: profile.verified,
-      headshot_url: profile.headshotUrl,
+      headshot_url: headshotUrl,
       theme: profile.theme,
       persona: profile.persona || "",
       palette_id: profile.paletteId || null,
@@ -76,7 +79,11 @@ export async function POST(req: NextRequest) {
     if (profilesData) {
       upsertData.profiles_data = profilesData;
     }
-    await supabase.from("profiles").upsert(upsertData);
+    const { error } = await supabase.from("profiles").upsert(upsertData);
+    if (error) {
+      console.error("save-profile error:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
     return NextResponse.json({ ok: true });
   }
 
