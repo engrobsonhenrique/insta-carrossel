@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { extractJSON } from "@/lib/json-extract";
 
 export const runtime = "edge";
 export const maxDuration = 30;
@@ -185,33 +186,12 @@ Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
     }
 
     const rawText = result.response.text();
-    const cleaned = rawText
-      .replace(/```json\s*/gi, "")
-      .replace(/```\s*/g, "")
-      .trim();
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const data = extractJSON(rawText);
+    if (!data) {
       return NextResponse.json(
-        { error: "Falha ao gerar hooks. Tente novamente." },
+        { error: "Formato inválido. Tente novamente." },
         { status: 500 }
       );
-    }
-
-    let data;
-    try {
-      data = JSON.parse(jsonMatch[0]);
-    } catch {
-      try {
-        const fixed = jsonMatch[0]
-          .replace(/,\s*([}\]])/g, "$1")
-          .replace(/[\x00-\x1F\x7F]/g, (c) => c === "\n" || c === "\t" ? c : "");
-        data = JSON.parse(fixed);
-      } catch {
-        return NextResponse.json(
-          { error: "Formato inválido. Tente novamente." },
-          { status: 500 }
-        );
-      }
     }
 
     return NextResponse.json(data);

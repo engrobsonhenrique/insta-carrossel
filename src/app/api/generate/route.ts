@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { extractJSON } from "@/lib/json-extract";
 
 export const runtime = "edge";
 export const maxDuration = 30;
@@ -211,22 +212,11 @@ O campo searchTerms deve conter 5 termos em inglês para buscar fotos relevantes
       throw lastError || new Error("Todos os modelos falharam");
     }
 
-    const text = result.response.text();
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const rawText = result.response.text();
+    const data = extractJSON(rawText);
+    if (!data) {
       return NextResponse.json(
-        { error: "Falha ao gerar conteúdo. Tente novamente." },
-        { status: 500 }
-      );
-    }
-
-    let data;
-    try {
-      data = JSON.parse(jsonMatch[0]);
-    } catch {
-      return NextResponse.json(
-        { error: "A IA retornou um formato inválido. Tente novamente." },
+        { error: "Formato inválido. Tente novamente." },
         { status: 500 }
       );
     }

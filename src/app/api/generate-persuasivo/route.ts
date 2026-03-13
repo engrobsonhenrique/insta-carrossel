@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { PersuasiveTemplate } from "@/lib/types";
+import { extractJSON } from "@/lib/json-extract";
 
 export const runtime = "edge";
 export const maxDuration = 30;
@@ -223,35 +224,12 @@ searchTerms: ${config.searchCount} termos em inglês para buscar fotos. REGRAS:
     }
 
     const rawText = result.response.text();
-    // Strip markdown code fences and clean up
-    const cleaned = rawText
-      .replace(/```json\s*/gi, "")
-      .replace(/```\s*/g, "")
-      .trim();
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const data = extractJSON(rawText);
+    if (!data) {
       return NextResponse.json(
-        { error: "Falha ao gerar conteúdo persuasivo. Tente novamente." },
+        { error: "Formato inválido. Tente novamente." },
         { status: 500 }
       );
-    }
-
-    let data;
-    try {
-      data = JSON.parse(jsonMatch[0]);
-    } catch {
-      // Try fixing trailing commas and retrying
-      try {
-        const fixed = jsonMatch[0]
-          .replace(/,\s*([}\]])/g, "$1")
-          .replace(/[\x00-\x1F\x7F]/g, (c) => c === "\n" || c === "\t" ? c : "");
-        data = JSON.parse(fixed);
-      } catch {
-        return NextResponse.json(
-          { error: "Formato inválido. Tente novamente." },
-          { status: 500 }
-        );
-      }
     }
 
     if (articleImages.length > 0) {
