@@ -184,8 +184,12 @@ Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
       throw lastError || new Error("Todos os modelos falharam");
     }
 
-    const text = result.response.text();
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const rawText = result.response.text();
+    const cleaned = rawText
+      .replace(/```json\s*/gi, "")
+      .replace(/```\s*/g, "")
+      .trim();
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return NextResponse.json(
         { error: "Falha ao gerar hooks. Tente novamente." },
@@ -197,10 +201,17 @@ Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
     try {
       data = JSON.parse(jsonMatch[0]);
     } catch {
-      return NextResponse.json(
-        { error: "Formato inválido. Tente novamente." },
-        { status: 500 }
-      );
+      try {
+        const fixed = jsonMatch[0]
+          .replace(/,\s*([}\]])/g, "$1")
+          .replace(/[\x00-\x1F\x7F]/g, (c) => c === "\n" || c === "\t" ? c : "");
+        data = JSON.parse(fixed);
+      } catch {
+        return NextResponse.json(
+          { error: "Formato inválido. Tente novamente." },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json(data);
