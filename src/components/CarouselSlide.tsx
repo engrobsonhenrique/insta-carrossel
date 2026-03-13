@@ -31,7 +31,7 @@ export default function CarouselSlide({
     const hasImage = slide.imageUrl && !slide.imageUrl.startsWith("data:text/");
     const imageElIdx = elements.findIndex(e => e.type === "image");
 
-    // Autoral template: no header, larger fonts, accent left border on bold
+    // Autoral template: accent bar top, bold in accent color, editorial, no avatar
     if (templateId === "autoral") {
       return (
         <div
@@ -42,65 +42,94 @@ export default function CarouselSlide({
             backgroundColor: bgColor,
             display: "flex",
             flexDirection: "column",
-            padding: "80px 64px 60px",
+            padding: 0,
             fontFamily:
               '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
             position: "relative",
             overflow: "hidden",
           }}
         >
-          {elements.map((el, elIdx) => {
-            if (el.type === "image") {
-              if (!hasImage) return null;
+          {/* Accent bar on top */}
+          <div
+            style={{
+              height: 6,
+              backgroundColor: badgeColor,
+              flexShrink: 0,
+            }}
+          />
+
+          {/* Small branding header */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "16px 64px",
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontSize: 22, color: secondaryColor, fontWeight: 500 }}>
+              @{profile.handle}
+            </span>
+          </div>
+
+          {/* Content area */}
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              padding: "0 64px 60px",
+              minHeight: 0,
+            }}
+          >
+            {elements.map((el, elIdx) => {
+              if (el.type === "image") {
+                if (!hasImage) return null;
+                return (
+                  <div
+                    key={`img-${elIdx}`}
+                    style={{
+                      marginTop: 20,
+                      marginBottom: 20,
+                      borderRadius: 16,
+                      overflow: "hidden",
+                      ...(slide.imageHeight
+                        ? { height: slide.imageHeight, flexShrink: 0 }
+                        : { flex: 1, minHeight: 0 }),
+                    }}
+                  >
+                    <img
+                      src={slide.imageUrl}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </div>
+                );
+              }
+
               return (
-                <div
-                  key={`img-${elIdx}`}
+                <p
+                  key={`text-${elIdx}`}
                   style={{
-                    marginTop: 24,
-                    marginBottom: 24,
-                    borderRadius: 20,
-                    overflow: "hidden",
-                    ...(slide.imageHeight
-                      ? { height: slide.imageHeight, flexShrink: 0 }
-                      : { flex: 1, minHeight: 0 }),
+                    fontSize: el.bold ? 52 : 34,
+                    lineHeight: el.bold ? 1.15 : 1.4,
+                    color: el.bold ? badgeColor : textColor,
+                    fontWeight: el.bold ? 800 : 400,
+                    margin: 0,
+                    marginTop: elIdx === 0 ? 0 : 20,
+                    flexShrink: 0,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
                   }}
                 >
-                  <img
-                    src={slide.imageUrl}
-                    alt=""
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                  />
-                </div>
+                  {el.content}
+                </p>
               );
-            }
+            })}
 
-            return (
-              <p
-                key={`text-${elIdx}`}
-                style={{
-                  fontSize: el.bold ? 44 : 40,
-                  lineHeight: el.bold ? 1.25 : 1.35,
-                  color: textColor,
-                  fontWeight: el.bold ? 700 : 400,
-                  margin: 0,
-                  marginTop: elIdx === 0 ? 0 : 20,
-                  flexShrink: 0,
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                  ...(el.bold
-                    ? {
-                        borderLeft: `5px solid ${badgeColor}`,
-                        paddingLeft: 20,
-                      }
-                    : {}),
-                }}
-              >
-                {el.content}
-              </p>
-            );
-          })}
-
-          {imageElIdx === -1 && <div style={{ flex: 1 }} />}
+            {imageElIdx === -1 && <div style={{ flex: 1 }} />}
+          </div>
         </div>
       );
     }
