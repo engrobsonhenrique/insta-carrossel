@@ -31,82 +31,46 @@ export default function CarouselSlide({
     const hasImage = slide.imageUrl && !slide.imageUrl.startsWith("data:text/");
     const imageElIdx = elements.findIndex(e => e.type === "image");
 
-    // Autoral template: editorial, BrandsDecoded-inspired
+    // Autoral template: clean editorial, no header
     if (templateId === "autoral") {
-      const currentYear = new Date().getFullYear();
       const textEls = elements.filter(e => e.type === "text");
       const showImg = hasImage && elements.some(e => e.type === "image");
 
-      const editorialHeader = (
-        <>
-          <div style={{ height: 6, backgroundColor: badgeColor, flexShrink: 0 }} />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "20px 64px",
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 20,
-                color: secondaryColor,
-                fontWeight: 500,
-                textTransform: "uppercase" as const,
-                letterSpacing: 2,
-              }}
-            >
-              @{profile.handle}
-            </span>
-            <span
-              style={{
-                fontSize: 20,
-                color: secondaryColor,
-                fontWeight: 600,
-                textTransform: "uppercase" as const,
-                letterSpacing: 3,
-              }}
-            >
-              {profile.displayName}
-            </span>
-            <span
-              style={{
-                fontSize: 20,
-                color: secondaryColor,
-                fontWeight: 500,
-                textTransform: "uppercase" as const,
-                letterSpacing: 2,
-              }}
-            >
-              ©COPYRIGHT {currentYear}
-            </span>
-          </div>
-        </>
-      );
+      // Adaptive font size based on text length
+      const adaptiveBold = (text: string, hasImg: boolean) => {
+        const len = text?.length || 0;
+        if (hasImg) return len > 150 ? 38 : len > 80 ? 44 : 50;
+        return len > 150 ? 42 : len > 80 ? 48 : 56;
+      };
+      const adaptiveRegular = (text: string, hasImg: boolean) => {
+        const len = text?.length || 0;
+        if (hasImg) return len > 200 ? 32 : 36;
+        return len > 200 ? 36 : 40;
+      };
 
       const slideFontFamily =
         '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-      // HOOK SLIDE: big image + overlay branding + large text below
+      const baseSlideStyle = {
+        width: 1080,
+        height: 1350,
+        backgroundColor: bgColor,
+        display: "flex" as const,
+        flexDirection: "column" as const,
+        padding: 0,
+        fontFamily: slideFontFamily,
+        position: "relative" as const,
+        overflow: "hidden" as const,
+      };
+
+      // HOOK SLIDE: full-bleed image + overlay branding + large text below
       if (slide.isHook) {
+        // Combine all hook text for adaptive sizing
+        const hookText = textEls.map(e => e.content || "").join(" ");
+        const hookFontSize = hookText.length > 120 ? 42 : hookText.length > 70 ? 48 : 52;
+
         return (
-          <div
-            className="carousel-slide"
-            style={{
-              width: 1080,
-              height: 1350,
-              backgroundColor: bgColor,
-              display: "flex",
-              flexDirection: "column",
-              padding: 0,
-              fontFamily: slideFontFamily,
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {editorialHeader}
+          <div className="carousel-slide" style={baseSlideStyle}>
             {showImg ? (
               <div
                 style={{
@@ -120,6 +84,17 @@ export default function CarouselSlide({
                   src={slide.imageUrl}
                   alt=""
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+                {/* Gradient overlay for text readability */}
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 200,
+                    background: `linear-gradient(transparent, ${bgColor}cc)`,
+                  }}
                 />
                 {/* Branding overlay on image */}
                 <div
@@ -156,22 +131,11 @@ export default function CarouselSlide({
                       />
                     </div>
                   )}
-                  <span
-                    style={{
-                      fontSize: 22,
-                      color: "#ffffff",
-                      fontWeight: 600,
-                    }}
-                  >
+                  <span style={{ fontSize: 22, color: "#ffffff", fontWeight: 600 }}>
                     @{profile.handle}
                   </span>
                   {profile.verified && (
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill={badgeColor}
-                    >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill={badgeColor}>
                       <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z" />
                     </svg>
                   )}
@@ -181,12 +145,12 @@ export default function CarouselSlide({
               <div style={{ flex: 1 }} />
             )}
             {/* Hook text at bottom */}
-            <div style={{ padding: "36px 64px 60px", flexShrink: 0 }}>
+            <div style={{ padding: "40px 64px 64px", flexShrink: 0 }}>
               {textEls.map((el, i) => (
                 <p
                   key={`text-${i}`}
                   style={{
-                    fontSize: 52,
+                    fontSize: hookFontSize,
                     lineHeight: 1.15,
                     color: textColor,
                     fontWeight: 800,
@@ -207,21 +171,7 @@ export default function CarouselSlide({
       // CTA SLIDE: centered, bold accent text + avatar
       if (slide.isCTA) {
         return (
-          <div
-            className="carousel-slide"
-            style={{
-              width: 1080,
-              height: 1350,
-              backgroundColor: bgColor,
-              display: "flex",
-              flexDirection: "column",
-              padding: 0,
-              fontFamily: slideFontFamily,
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {editorialHeader}
+          <div className="carousel-slide" style={baseSlideStyle}>
             <div
               style={{
                 flex: 1,
@@ -229,7 +179,7 @@ export default function CarouselSlide({
                 flexDirection: "column",
                 justifyContent: "center",
                 alignItems: "center",
-                padding: "0 80px 60px",
+                padding: "80px 80px",
                 textAlign: "center",
               }}
             >
@@ -247,11 +197,7 @@ export default function CarouselSlide({
                   <img
                     src={profile.headshotUrl}
                     alt=""
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 </div>
               )}
@@ -272,6 +218,23 @@ export default function CarouselSlide({
                   {el.content}
                 </p>
               ))}
+              <div
+                style={{
+                  marginTop: 48,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <span style={{ fontSize: 24, color: secondaryColor, fontWeight: 500 }}>
+                  @{profile.handle}
+                </span>
+                {profile.verified && (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill={badgeColor}>
+                    <path d="M22.25 12c0-1.43-.88-2.67-2.19-3.34.46-1.39.2-2.9-.81-3.91s-2.52-1.27-3.91-.81c-.66-1.31-1.91-2.19-3.34-2.19s-2.67.88-3.33 2.19c-1.4-.46-2.91-.2-3.92.81s-1.26 2.52-.8 3.91c-1.31.67-2.2 1.91-2.2 3.34s.89 2.67 2.2 3.34c-.46 1.39-.21 2.9.8 3.91s2.52 1.26 3.91.81c.67 1.31 1.91 2.19 3.34 2.19s2.68-.88 3.34-2.19c1.39.45 2.9.2 3.91-.81s1.27-2.52.81-3.91c1.31-.67 2.19-1.91 2.19-3.34zm-11.71 4.2L6.8 12.46l1.41-1.42 2.26 2.26 4.8-5.23 1.47 1.36-6.2 6.77z" />
+                  </svg>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -281,27 +244,13 @@ export default function CarouselSlide({
       const isTextOnly = !showImg;
 
       return (
-        <div
-          className="carousel-slide"
-          style={{
-            width: 1080,
-            height: 1350,
-            backgroundColor: bgColor,
-            display: "flex",
-            flexDirection: "column",
-            padding: 0,
-            fontFamily: slideFontFamily,
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {editorialHeader}
+        <div className="carousel-slide" style={baseSlideStyle}>
           <div
             style={{
               flex: 1,
               display: "flex",
               flexDirection: "column",
-              padding: "0 64px 60px",
+              padding: isTextOnly ? "80px 64px 64px" : "48px 64px 64px",
               justifyContent: isTextOnly ? "center" : "flex-start",
               minHeight: 0,
             }}
@@ -325,24 +274,23 @@ export default function CarouselSlide({
                     <img
                       src={slide.imageUrl}
                       alt=""
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                      }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   </div>
                 );
               }
 
+              const content = el.content || "";
+              const fontSize = el.bold
+                ? adaptiveBold(content, !isTextOnly)
+                : adaptiveRegular(content, !isTextOnly);
+
               return (
                 <p
                   key={`text-${elIdx}`}
                   style={{
-                    fontSize: el.bold
-                      ? (isTextOnly ? 56 : 52)
-                      : (isTextOnly ? 42 : 38),
-                    lineHeight: el.bold ? 1.15 : 1.35,
+                    fontSize,
+                    lineHeight: el.bold ? 1.18 : 1.4,
                     color: el.bold ? badgeColor : textColor,
                     fontWeight: el.bold ? 800 : 400,
                     margin: 0,
@@ -352,7 +300,7 @@ export default function CarouselSlide({
                     wordBreak: "break-word",
                   }}
                 >
-                  {el.content}
+                  {content}
                 </p>
               );
             })}
