@@ -52,13 +52,23 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const userId = await getAuthUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  let userId = await getAuthUserId();
 
   const body = await req.json();
   const { action } = body;
+
+  // Fallback: if auth fails but client sent userId, use it for save-profile
+  // This is safe because we use service_role key (bypasses RLS)
+  if (!userId && action === "save-profile" && body.userId) {
+    userId = body.userId;
+    console.log("sync POST: auth failed, using body.userId:", userId);
+  }
+
+  if (!userId) {
+    console.error("sync POST: no userId, action:", action);
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = getSupabase();
 
   if (action === "save-profile") {

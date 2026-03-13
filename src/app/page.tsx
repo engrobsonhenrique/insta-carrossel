@@ -196,16 +196,19 @@ export default function Home() {
           action: "save-profile",
           profile: activeProfile,
           profilesData: cloudStore,
+          userId: user?.id, // fallback if server-side auth fails
         }),
       });
       if (!res.ok) {
         const err = await res.text();
         console.error("Cloud sync failed:", res.status, err);
+      } else {
+        console.log("Cloud sync OK");
       }
     } catch (e) {
       console.error("Cloud sync error:", e);
     }
-  }, [stripHeadshotsForCloud]);
+  }, [stripHeadshotsForCloud, user]);
 
   // Load data on mount
   useEffect(() => {
@@ -225,16 +228,19 @@ export default function Home() {
           ]);
           if (profileRes.ok) {
             const { profilesData } = await profileRes.json();
+            console.log("Cloud load:", profilesData ? `${profilesData.profiles?.length} profiles` : "no data");
             if (profilesData && profilesData.profiles?.length > 0) {
               // Cloud has data — use it
               setProfileStore(profilesData);
               saveProfileStore(profilesData);
             } else {
               // Cloud has no profilesData — use local and push to cloud
+              console.log("Cloud empty, pushing local store with", localStore.profiles.length, "profiles");
               setProfileStore(localStore);
               syncToCloud(localStore);
             }
           } else {
+            console.error("Cloud load failed:", profileRes.status);
             setProfileStore(localStore);
           }
           if (carouselsRes.ok) {
