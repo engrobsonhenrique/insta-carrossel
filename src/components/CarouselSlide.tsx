@@ -112,25 +112,6 @@ export default function CarouselSlide({
                 textAlign: "center",
               }}
             >
-              {/* Subtitle (regular text) */}
-              {hookRegularEls.map((el, i) => (
-                <p
-                  key={`reg-${i}`}
-                  style={{
-                    fontSize: 28,
-                    lineHeight: 1.3,
-                    color: "#ffffff",
-                    fontWeight: 500,
-                    margin: 0,
-                    marginBottom: 16,
-                    textTransform: "uppercase" as const,
-                    letterSpacing: 1,
-                    opacity: 0.9,
-                  }}
-                >
-                  {el.content}
-                </p>
-              ))}
               {/* Main hook (bold text) */}
               {hookBoldEls.map((el, i) => (
                 <p
@@ -141,10 +122,29 @@ export default function CarouselSlide({
                     color: "#ffffff",
                     fontWeight: 900,
                     margin: 0,
+                    marginBottom: 16,
                     textTransform: "uppercase" as const,
                     letterSpacing: -0.5,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
+                  }}
+                >
+                  {el.content}
+                </p>
+              ))}
+              {/* Subtitle (regular text) */}
+              {hookRegularEls.map((el, i) => (
+                <p
+                  key={`reg-${i}`}
+                  style={{
+                    fontSize: 28,
+                    lineHeight: 1.3,
+                    color: "#ffffff",
+                    fontWeight: 500,
+                    margin: 0,
+                    textTransform: "uppercase" as const,
+                    letterSpacing: 1,
+                    opacity: 0.9,
                   }}
                 >
                   {el.content}
