@@ -8,7 +8,12 @@ function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim());
 }
 
-async function extractArticleContent(url: string): Promise<string | null> {
+interface ArticleData {
+  content: string;
+  images: string[];
+}
+
+async function extractArticleData(url: string): Promise<ArticleData | null> {
   try {
     const res = await fetch(url, {
       headers: {
@@ -21,6 +26,34 @@ async function extractArticleContent(url: string): Promise<string | null> {
     if (!res.ok) return null;
 
     const html = await res.text();
+
+    // Extract images from article
+    const images: string[] = [];
+    const baseUrl = new URL(url);
+
+    // og:image first
+    const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (ogMatch?.[1]) images.push(ogMatch[1]);
+
+    // Article/main content images
+    const articleMatch = html.match(/<article[\s\S]*?<\/article>/i)
+      || html.match(/<main[\s\S]*?<\/main>/i)
+      || html.match(/<div[^>]+class=["'][^"']*(?:content|post|article|story)[^"']*["'][\s\S]*?<\/div>/i);
+    const contentHtml = articleMatch ? articleMatch[0] : html;
+
+    const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+    let imgMatch;
+    while ((imgMatch = imgRegex.exec(contentHtml)) !== null) {
+      let src = imgMatch[1];
+      if (src.startsWith("data:") || src.endsWith(".svg") || src.includes("pixel") || src.includes("tracker")) continue;
+      if (/width=["']?[1-9]\d?["']?/i.test(imgMatch[0]) && !/width=["']?\d{3,}["']?/i.test(imgMatch[0])) continue;
+      if (src.startsWith("//")) src = baseUrl.protocol + src;
+      else if (src.startsWith("/")) src = baseUrl.origin + src;
+      else if (!src.startsWith("http")) continue;
+      if (!images.includes(src)) images.push(src);
+    }
+
     const cleaned = html
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -37,7 +70,10 @@ async function extractArticleContent(url: string): Promise<string | null> {
       .replace(/\s+/g, " ")
       .trim();
 
-    return cleaned.slice(0, 8000);
+    return {
+      content: cleaned.slice(0, 8000),
+      images: images.slice(0, 15),
+    };
   } catch {
     return null;
   }
@@ -64,9 +100,10 @@ export async function POST(req: NextRequest) {
     }
 
     let articleContent: string | null = null;
+    let articleImages: string[] = [];
     if (isUrl(topic)) {
-      articleContent = await extractArticleContent(topic);
-      if (!articleContent) {
+      const articleData = await extractArticleData(topic);
+      if (!articleData) {
         return NextResponse.json(
           {
             error:
@@ -75,6 +112,8 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+      articleContent = articleData.content;
+      articleImages = articleData.images;
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -130,7 +169,13 @@ ${captionInstruction}
 Retorne APENAS JSON valido (sem markdown, sem \`\`\`):
 {"texts":["t1","t2","t3","t4","t5","t6","t7","t8","t9","t10","t11","t12","t13","t14","t15","t16","t17","t18","t19","t20","t21"],"searchTerms":["eng term 1","eng term 2","eng term 3","eng term 4","eng term 5"]${captionFormat ? ',"caption":"legenda"' : ""}}
 
-O campo searchTerms deve conter 7 termos em inglês, específicos e descritivos, para buscar imagens relevantes (1 por slide com imagem). Cada termo deve ser uma frase curta (2-4 palavras).`;
+O campo searchTerms deve conter 7 termos em inglês para buscar fotos relevantes (1 por slide com imagem). REGRAS:
+- Descreva CENAS ou OBJETOS VISUAIS concretos (ex: "doctor examining patient hospital", "smartphone data analytics dashboard")
+- NÃO use conceitos abstratos (ex: "success", "power", "growth")
+- 3-5 palavras descritivas por termo
+- Cada termo deve corresponder ao conteúdo do slide respectivo
+- Pense: "que foto ilustraria bem este slide?"`;
+
 
     let result;
     let lastError;
@@ -169,6 +214,9 @@ O campo searchTerms deve conter 7 termos em inglês, específicos e descritivos,
       );
     }
 
+    if (articleImages.length > 0) {
+      data.articleImages = articleImages;
+    }
     return NextResponse.json(data);
   } catch (error: unknown) {
     console.error("Generate persuasivo error:", error);

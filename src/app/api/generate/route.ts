@@ -8,7 +8,12 @@ function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim());
 }
 
-async function extractArticleContent(url: string): Promise<string | null> {
+interface ArticleData {
+  content: string;
+  images: string[];
+}
+
+async function extractArticleData(url: string): Promise<ArticleData | null> {
   try {
     const res = await fetch(url, {
       headers: {
@@ -22,7 +27,36 @@ async function extractArticleContent(url: string): Promise<string | null> {
 
     const html = await res.text();
 
-    // Remove scripts, styles, and HTML tags to get plain text
+    // Extract images from article content (og:image, article images, content images)
+    const images: string[] = [];
+    const baseUrl = new URL(url);
+
+    // 1. og:image (highest priority — editorial pick)
+    const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (ogMatch?.[1]) images.push(ogMatch[1]);
+
+    // 2. Images inside <article> or main content
+    const articleMatch = html.match(/<article[\s\S]*?<\/article>/i)
+      || html.match(/<main[\s\S]*?<\/main>/i)
+      || html.match(/<div[^>]+class=["'][^"']*(?:content|post|article|story)[^"']*["'][\s\S]*?<\/div>/i);
+    const contentHtml = articleMatch ? articleMatch[0] : html;
+
+    const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+    let imgMatch;
+    while ((imgMatch = imgRegex.exec(contentHtml)) !== null) {
+      let src = imgMatch[1];
+      // Skip tiny icons, trackers, data URIs, SVGs
+      if (src.startsWith("data:") || src.endsWith(".svg") || src.includes("pixel") || src.includes("tracker")) continue;
+      if (/width=["']?[1-9]\d?["']?/i.test(imgMatch[0]) && !/width=["']?\d{3,}["']?/i.test(imgMatch[0])) continue;
+      // Resolve relative URLs
+      if (src.startsWith("//")) src = baseUrl.protocol + src;
+      else if (src.startsWith("/")) src = baseUrl.origin + src;
+      else if (!src.startsWith("http")) continue;
+      if (!images.includes(src)) images.push(src);
+    }
+
+    // Clean HTML to text
     const cleaned = html
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -39,8 +73,10 @@ async function extractArticleContent(url: string): Promise<string | null> {
       .replace(/\s+/g, " ")
       .trim();
 
-    // Limit to ~8000 chars to fit in prompt
-    return cleaned.slice(0, 8000);
+    return {
+      content: cleaned.slice(0, 8000),
+      images: images.slice(0, 15), // Cap at 15 images
+    };
   } catch {
     return null;
   }
@@ -65,16 +101,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // If input is a URL, extract the article content
+    // If input is a URL, extract the article content and images
     let articleContent: string | null = null;
+    let articleImages: string[] = [];
     if (isUrl(topic)) {
-      articleContent = await extractArticleContent(topic);
-      if (!articleContent) {
+      const articleData = await extractArticleData(topic);
+      if (!articleData) {
         return NextResponse.json(
           { error: "Não foi possível acessar o conteúdo do link. Verifique a URL e tente novamente." },
           { status: 400 }
         );
       }
+      articleContent = articleData.content;
+      articleImages = articleData.images;
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -152,7 +191,13 @@ Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
   "caption": "legenda do post aqui"` : ""}
 }
 
-O campo searchTerms deve conter 5 termos em inglês, bem específicos e descritivos, para buscar imagens relevantes ao tema na web. Cada termo deve ser uma frase curta e descritiva (2-4 palavras) que retorne imagens visualmente relevantes ao conteúdo dos tweets. Evite termos genéricos.`;
+O campo searchTerms deve conter 5 termos em inglês para buscar fotos relevantes. REGRAS para searchTerms:
+- Cada termo deve descrever uma CENA ou OBJETO VISUAL concreto (ex: "scientist laboratory microscope", "stock market trading screen")
+- NÃO use conceitos abstratos (ex: "success", "innovation", "growth")
+- Cada termo deve ter 3-5 palavras descritivas
+- Os termos devem corresponder na ordem ao conteúdo dos tweets (termo 1 = tweet 1, termo 2 = tweets 2-3, etc.)
+- Pense: "que foto ilustraria bem esse tweet?"`;
+
 
         result = await model.generateContent(prompt);
         break;
@@ -184,6 +229,10 @@ O campo searchTerms deve conter 5 termos em inglês, bem específicos e descriti
         { error: "A IA retornou um formato inválido. Tente novamente." },
         { status: 500 }
       );
+    }
+    // Include article images if available
+    if (articleImages.length > 0) {
+      data.articleImages = articleImages;
     }
     return NextResponse.json(data);
   } catch (error: unknown) {

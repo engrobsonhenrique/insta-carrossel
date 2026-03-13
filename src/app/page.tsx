@@ -173,6 +173,7 @@ export default function Home() {
       let tweetData: TweetData[] | undefined;
       let persuasiveTexts: string[] | undefined;
       let searchTerms: string[] | undefined;
+      let articleImages: string[] | undefined;
 
       if (isPasteMode) {
         setStatus("building");
@@ -229,6 +230,7 @@ export default function Home() {
         }
         persuasiveTexts = genData.texts;
         searchTerms = genData.searchTerms;
+        articleImages = genData.articleImages;
         if (genData.caption) setCaption(genData.caption);
       } else {
         // Informativo mode
@@ -276,6 +278,7 @@ export default function Home() {
         }
         tweetData = genData.tweets.map((t: { text: string }) => ({ text: t.text }));
         searchTerms = genData.searchTerms;
+        articleImages = genData.articleImages;
         if (genData.caption) setCaption(genData.caption);
         setTweets(tweetData || []);
       }
@@ -289,7 +292,7 @@ export default function Home() {
         const imgRes = await fetch("/api/search-images", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ searchTerms }),
+          body: JSON.stringify({ searchTerms, articleImages }),
         });
 
         if (imgRes.ok) {

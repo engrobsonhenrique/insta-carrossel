@@ -3,6 +3,17 @@ import { CarouselHistoryItem, SlideData, ProfileConfig } from "./types";
 const STORAGE_KEY = "insta-carrossel-history";
 const MAX_ITEMS = 20;
 
+// Strip base64 data URLs from slides to avoid localStorage quota issues
+function stripBase64Images(slides: SlideData[]): SlideData[] {
+  return slides.map((slide) => ({
+    ...slide,
+    imageUrl:
+      slide.imageUrl && slide.imageUrl.startsWith("data:")
+        ? undefined
+        : slide.imageUrl,
+  }));
+}
+
 export function getHistory(): CarouselHistoryItem[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -22,8 +33,14 @@ export function saveToHistory(data: {
   const item: CarouselHistoryItem = {
     id: Date.now().toString(36),
     topic: data.topic,
-    slides: data.slides,
-    profile: data.profile,
+    slides: stripBase64Images(data.slides),
+    profile: {
+      ...data.profile,
+      headshotUrl:
+        data.profile.headshotUrl && data.profile.headshotUrl.startsWith("data:")
+          ? null
+          : data.profile.headshotUrl,
+    },
     createdAt: new Date().toISOString(),
   };
 
@@ -33,9 +50,18 @@ export function saveToHistory(data: {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
   } catch {
-    // storage full — remove oldest and retry
-    history.pop();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+    // storage still full — keep removing oldest until it fits
+    while (history.length > 1) {
+      history.pop();
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        return item;
+      } catch {
+        continue;
+      }
+    }
+    // Last resort: clear and save only this item
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([item]));
   }
 
   return item;
