@@ -4,12 +4,20 @@ export type CTAType = "salvar" | "compartilhar" | "comentar" | "custom";
 
 export type CaptionFormat = "curta" | "longa";
 
+export type ContentStyle = "informativo" | "persuasivo";
+
+export interface PersuasiveBlock {
+  textAbove: string;
+  textBelow: string;
+}
+
 export interface AdvancedOptions {
   ctaType: CTAType;
   ctaCustomText?: string;
   usePasteText?: boolean;
   pasteOwnText?: string;
   captionFormat?: CaptionFormat;
+  contentStyle?: ContentStyle;
 }
 
 export interface ProfileConfig {
@@ -32,6 +40,8 @@ export interface SlideData {
   imageUrl?: string;
   isHook: boolean;
   isCTA: boolean;
+  contentStyle?: ContentStyle;
+  persuasiveBlock?: PersuasiveBlock;
 }
 
 export interface CarouselData {

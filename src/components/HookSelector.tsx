@@ -10,11 +10,23 @@ interface HookSelectorProps {
 }
 
 const styleColors: Record<string, string> = {
+  // Informativo styles
   "Curiosidade": "bg-purple-500/20 text-purple-400",
   "Dado impactante": "bg-orange-500/20 text-orange-400",
   "Pergunta provocativa": "bg-cyan-500/20 text-cyan-400",
   "Afirmação controversa": "bg-red-500/20 text-red-400",
   "História pessoal": "bg-green-500/20 text-green-400",
+  // CM5.4 Persuasivo styles
+  "Reenquadramento": "bg-violet-500/20 text-violet-400",
+  "Conflito oculto": "bg-rose-500/20 text-rose-400",
+  "Implicação sistêmica": "bg-amber-500/20 text-amber-400",
+  "Contradição": "bg-red-500/20 text-red-400",
+  "Ameaça/oportunidade": "bg-yellow-500/20 text-yellow-400",
+  "Nomeação": "bg-teal-500/20 text-teal-400",
+  "Diagnóstico cultural": "bg-indigo-500/20 text-indigo-400",
+  "Inversão": "bg-pink-500/20 text-pink-400",
+  "Ambição de mercado": "bg-emerald-500/20 text-emerald-400",
+  "Mecanismo social": "bg-sky-500/20 text-sky-400",
 };
 
 export default function HookSelector({

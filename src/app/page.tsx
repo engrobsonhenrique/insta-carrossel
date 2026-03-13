@@ -18,10 +18,11 @@ import {
   CaptionFormat,
   AdvancedOptions,
   HookOption,
+  PersuasiveBlock,
 } from "@/lib/types";
 import { splitTextIntoTweets, buildCTATweet } from "@/lib/text-splitter";
 import HookSelector from "@/components/HookSelector";
-import { buildSlides } from "@/lib/slide-layout";
+import { buildSlides, buildPersuasiveSlides } from "@/lib/slide-layout";
 import {
   getHistory,
   saveToHistory,
@@ -158,6 +159,7 @@ export default function Home() {
 
   const generateCarousel = useCallback(async (selectedHook?: string) => {
     const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();
+    const isPersuasivo = mode === "avancado" && advancedOptions.contentStyle === "persuasivo";
     if (!isPasteMode && !topic.trim()) return;
     if (isPasteMode && !advancedOptions.pasteOwnText?.trim()) return;
 
@@ -169,7 +171,8 @@ export default function Home() {
     setHookOptions([]);
 
     try {
-      let tweetData: TweetData[];
+      let tweetData: TweetData[] | undefined;
+      let persuasiveBlocks: PersuasiveBlock[] | undefined;
       let searchTerms: string[] | undefined;
 
       if (isPasteMode) {
@@ -183,7 +186,53 @@ export default function Home() {
         if (topic.trim()) {
           searchTerms = [topic.trim()];
         }
+      } else if (isPersuasivo) {
+        // Persuasivo mode: call CM5.4 endpoint
+        setStatus("generating");
+        const isUrl = /^https?:\/\//i.test(topic.trim());
+        setStatusMessage(isUrl ? "Lendo matéria e criando narrativa persuasiva..." : "Construindo narrativa persuasiva...");
+
+        const genBody: Record<string, string | undefined> = {
+          topic,
+          persona: profile.persona,
+          selectedHook,
+          ctaType: advancedOptions.ctaType,
+        };
+        if (advancedOptions.ctaType === "custom") {
+          genBody.ctaCustomText = advancedOptions.ctaCustomText;
+        }
+        if (advancedOptions.captionFormat) {
+          genBody.captionFormat = advancedOptions.captionFormat;
+        }
+
+        const genRes = await fetch("/api/generate-persuasivo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(genBody),
+        });
+
+        if (!genRes.ok) {
+          let errMsg = "Erro ao gerar conteúdo persuasivo";
+          try {
+            const err = await genRes.json();
+            errMsg = err.error || errMsg;
+          } catch {
+            errMsg = await genRes.text().catch(() => errMsg);
+          }
+          throw new Error(errMsg);
+        }
+
+        let genData;
+        try {
+          genData = await genRes.json();
+        } catch {
+          throw new Error("Resposta inválida do servidor. Tente novamente.");
+        }
+        persuasiveBlocks = genData.blocks;
+        searchTerms = genData.searchTerms;
+        if (genData.caption) setCaption(genData.caption);
       } else {
+        // Informativo mode
         setStatus("generating");
         const isUrl = /^https?:\/\//i.test(topic.trim());
         setStatusMessage(isUrl ? "Lendo matéria e escrevendo thread..." : "Pesquisando e escrevendo thread...");
@@ -229,7 +278,7 @@ export default function Home() {
         tweetData = genData.tweets.map((t: { text: string }) => ({ text: t.text }));
         searchTerms = genData.searchTerms;
         if (genData.caption) setCaption(genData.caption);
-        setTweets(tweetData);
+        setTweets(tweetData || []);
       }
 
       // Search images
@@ -254,7 +303,9 @@ export default function Home() {
       setStatus("building");
       setStatusMessage("Montando slides...");
 
-      const builtSlides = buildSlides(tweetData, images);
+      const builtSlides = persuasiveBlocks
+        ? buildPersuasiveSlides(persuasiveBlocks, images)
+        : buildSlides(tweetData || [], images);
       setSlides(builtSlides);
       setStatus("done");
       setStatusMessage(
@@ -311,7 +362,11 @@ export default function Home() {
         const res = await fetch("/api/generate-hooks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ topic, persona: profile.persona }),
+          body: JSON.stringify({
+            topic,
+            persona: profile.persona,
+            contentStyle: advancedOptions.contentStyle,
+          }),
         });
 
         if (!res.ok) {
@@ -648,6 +703,41 @@ export default function Home() {
           {/* Advanced options */}
           {mode === "avancado" && (
             <div className="space-y-4 p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl">
+              {/* Content style selection */}
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">
+                  Estilo de conteudo
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: "informativo", label: "Informativo" },
+                    { value: "persuasivo", label: "Persuasivo" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() =>
+                        setAdvancedOptions((prev) => ({
+                          ...prev,
+                          contentStyle: opt.value,
+                        }))
+                      }
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        (advancedOptions.contentStyle || "informativo") === opt.value
+                          ? "bg-blue-500 text-white"
+                          : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-zinc-500 mt-1.5">
+                  {(advancedOptions.contentStyle || "informativo") === "informativo"
+                    ? "Thread estilo Twitter com fatos e dados."
+                    : "Narrativa persuasiva com captura e ancoragem (CM5.4)."}
+                </p>
+              </div>
+
               {/* CTA selection */}
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
@@ -870,28 +960,76 @@ export default function Home() {
                   <h3 className="text-sm font-medium text-zinc-400">
                     Editar slide {currentSlide + 1}
                   </h3>
-                  {slides[currentSlide].tweets.map((tweet, tweetIdx) => (
-                    <div key={tweetIdx}>
-                      <label className="block text-xs text-zinc-500 mb-1">
-                        Tweet {tweetIdx + 1}
-                      </label>
-                      <textarea
-                        value={tweet.text}
-                        onChange={(e) =>
-                          updateTweetText(
-                            currentSlide,
-                            tweetIdx,
-                            e.target.value
-                          )
-                        }
-                        rows={4}
-                        className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-blue-500"
-                      />
-                      <div className="text-xs text-zinc-600 text-right">
-                        {tweet.text.length} chars
+                  {slides[currentSlide].persuasiveBlock ? (
+                    <>
+                      <div>
+                        <label className="block text-xs text-zinc-500 mb-1">
+                          Texto acima da imagem
+                        </label>
+                        <textarea
+                          value={slides[currentSlide].persuasiveBlock!.textAbove}
+                          onChange={(e) => {
+                            const newSlides = [...slides];
+                            newSlides[currentSlide] = {
+                              ...newSlides[currentSlide],
+                              persuasiveBlock: {
+                                ...newSlides[currentSlide].persuasiveBlock!,
+                                textAbove: e.target.value,
+                              },
+                              tweets: [{ text: e.target.value }],
+                            };
+                            setSlides(newSlides);
+                          }}
+                          rows={4}
+                          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-blue-500"
+                        />
                       </div>
-                    </div>
-                  ))}
+                      <div>
+                        <label className="block text-xs text-zinc-500 mb-1">
+                          Texto abaixo da imagem (negrito)
+                        </label>
+                        <textarea
+                          value={slides[currentSlide].persuasiveBlock!.textBelow}
+                          onChange={(e) => {
+                            const newSlides = [...slides];
+                            newSlides[currentSlide] = {
+                              ...newSlides[currentSlide],
+                              persuasiveBlock: {
+                                ...newSlides[currentSlide].persuasiveBlock!,
+                                textBelow: e.target.value,
+                              },
+                            };
+                            setSlides(newSlides);
+                          }}
+                          rows={3}
+                          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-blue-500"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    slides[currentSlide].tweets.map((tweet, tweetIdx) => (
+                      <div key={tweetIdx}>
+                        <label className="block text-xs text-zinc-500 mb-1">
+                          Tweet {tweetIdx + 1}
+                        </label>
+                        <textarea
+                          value={tweet.text}
+                          onChange={(e) =>
+                            updateTweetText(
+                              currentSlide,
+                              tweetIdx,
+                              e.target.value
+                            )
+                          }
+                          rows={4}
+                          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-blue-500"
+                        />
+                        <div className="text-xs text-zinc-600 text-right">
+                          {tweet.text.length} chars
+                        </div>
+                      </div>
+                    ))
+                  )}
                   <div>
                     <label className="block text-xs text-zinc-500 mb-1">
                       Imagem do slide

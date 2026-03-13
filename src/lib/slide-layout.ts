@@ -1,4 +1,4 @@
-import { TweetData, SlideData } from "./types";
+import { TweetData, SlideData, PersuasiveBlock } from "./types";
 
 /**
  * Smart slide layout logic based on the thread-carousels architecture:
@@ -92,4 +92,35 @@ export function buildSlides(
   }
 
   return slides;
+}
+
+export function buildPersuasiveSlides(
+  blocks: PersuasiveBlock[],
+  images: string[]
+): SlideData[] {
+  if (blocks.length === 0) return [];
+
+  const validImages = images.filter(
+    (url) => !url.startsWith("data:text/")
+  );
+
+  return blocks.map((block, i) => {
+    const imageUrl = i < validImages.length
+      ? validImages[i]
+      : validImages.length > 0
+        ? validImages[i % validImages.length]
+        : undefined;
+
+    const isLast = i === blocks.length - 1;
+
+    return {
+      id: i + 1,
+      tweets: [{ text: block.textAbove }],
+      imageUrl: isLast ? undefined : imageUrl,
+      isHook: i === 0,
+      isCTA: isLast,
+      contentStyle: "persuasivo" as const,
+      persuasiveBlock: block,
+    };
+  });
 }

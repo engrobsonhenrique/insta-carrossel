@@ -42,7 +42,7 @@ async function extractArticleContent(url: string): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { topic, persona } = await req.json();
+    const { topic, persona, contentStyle } = await req.json();
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!topic) {
@@ -85,7 +85,56 @@ export async function POST(req: NextRequest) {
       ? `\nPERSONA DO CRIADOR (adapte o tom e estilo):\n${persona.trim()}\n`
       : "";
 
-    const prompt = `Você é um especialista em criar hooks virais para Instagram.${personaInstruction}
+    const isPersuasivo = contentStyle === "persuasivo";
+
+    const prompt = isPersuasivo
+      ? `Você é um especialista em criar headlines persuasivas para carrosséis de Instagram usando a metodologia Content Machine.${personaInstruction}
+
+${topicInstruction}
+
+Internamente, identifique: a transformação (o que mudou), a fricção central (tensão real) e o ângulo narrativo dominante.
+
+Gere exatamente 10 opções de headlines para a capa do carrossel.
+Cada headline tem 2 linhas separadas por \\n:
+- Linha 1 (captura): termina com "?" ou ":" — deve interromper e gerar curiosidade
+- Linha 2 (ancoragem): termina com "." ou "!" — deve ancorar e dar peso à tese
+
+As 10 opções devem variar de natureza:
+1. Reenquadramento
+2. Conflito oculto
+3. Implicação sistêmica
+4. Contradição
+5. Ameaça/oportunidade
+6. Nomeação
+7. Diagnóstico cultural
+8. Inversão
+9. Ambição de mercado
+10. Mecanismo social
+
+Regras:
+- Escreva em português do Brasil
+- Headline não é mini-resumo, é mecanismo de captura
+- A linha 1 deve capturar, a linha 2 deve ancorar
+- Evite headlines genéricas que serviriam para qualquer tema
+- Evite linguagem burocrática ou analítica demais
+- Cada opção deve ter relação real com a tese e as evidências
+
+Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
+{
+  "hooks": [
+    {"id": 1, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Reenquadramento"},
+    {"id": 2, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Conflito oculto"},
+    {"id": 3, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Implicação sistêmica"},
+    {"id": 4, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Contradição"},
+    {"id": 5, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Ameaça/oportunidade"},
+    {"id": 6, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Nomeação"},
+    {"id": 7, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Diagnóstico cultural"},
+    {"id": 8, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Inversão"},
+    {"id": 9, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Ambição de mercado"},
+    {"id": 10, "text": "linha de captura?\\nlinha de ancoragem.", "style": "Mecanismo social"}
+  ]
+}`
+      : `Você é um especialista em criar hooks virais para Instagram.${personaInstruction}
 
 ${topicInstruction}
 
