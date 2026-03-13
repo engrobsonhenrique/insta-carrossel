@@ -194,25 +194,83 @@ export default function Home() {
           if (profileRes.ok) {
             const { profilesData, profile: cloudProfile } = await profileRes.json();
             if (profilesData && profilesData.profiles?.length > 0) {
-              // Full ProfileStore from cloud — use it directly
-              setProfileStore(profilesData);
-              saveProfileStore(profilesData);
+              // Full ProfileStore from cloud
+              // Use cloud if local is default (1 profile, no persona)
+              const localIsDefault =
+                store.profiles.length === 1 &&
+                !store.profiles[0].persona &&
+                !store.profiles[0].blotatoApiKey;
+              if (localIsDefault) {
+                setProfileStore(profilesData);
+                saveProfileStore(profilesData);
+              } else {
+                // Local has richer data — push to cloud
+                const activeProfile = getActiveProfile(store);
+                const cloudStore = {
+                  ...store,
+                  profiles: store.profiles.map((p) => ({
+                    ...p,
+                    headshotUrl:
+                      p.headshotUrl && p.headshotUrl.startsWith("data:")
+                        ? null
+                        : p.headshotUrl,
+                  })),
+                };
+                fetch("/api/sync", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "save-profile",
+                    profile: activeProfile,
+                    profilesData: cloudStore,
+                  }),
+                }).catch(() => {});
+              }
             } else if (cloudProfile) {
-              // Legacy: single profile fields only
-              setProfileStore((prev) => {
-                if (!prev) return prev;
-                const active = getActiveProfile(prev);
-                return updateProfile(prev, {
-                  ...active,
-                  displayName: cloudProfile.display_name,
-                  handle: cloudProfile.handle,
-                  verified: cloudProfile.verified,
-                  headshotUrl: cloudProfile.headshot_url,
-                  theme: cloudProfile.theme,
-                  persona: cloudProfile.persona || "",
-                  paletteId: cloudProfile.palette_id || undefined,
+              // Cloud has no profilesData yet — check if local has richer data
+              const localHasData =
+                store.profiles.length > 1 ||
+                store.profiles[0].persona ||
+                store.profiles[0].blotatoApiKey;
+              if (localHasData) {
+                // Push local to cloud
+                const activeProfile = getActiveProfile(store);
+                const cloudStore = {
+                  ...store,
+                  profiles: store.profiles.map((p) => ({
+                    ...p,
+                    headshotUrl:
+                      p.headshotUrl && p.headshotUrl.startsWith("data:")
+                        ? null
+                        : p.headshotUrl,
+                  })),
+                };
+                fetch("/api/sync", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "save-profile",
+                    profile: activeProfile,
+                    profilesData: cloudStore,
+                  }),
+                }).catch(() => {});
+              } else {
+                // Local is default, use cloud legacy fields
+                setProfileStore((prev) => {
+                  if (!prev) return prev;
+                  const active = getActiveProfile(prev);
+                  return updateProfile(prev, {
+                    ...active,
+                    displayName: cloudProfile.display_name,
+                    handle: cloudProfile.handle,
+                    verified: cloudProfile.verified,
+                    headshotUrl: cloudProfile.headshot_url,
+                    theme: cloudProfile.theme,
+                    persona: cloudProfile.persona || "",
+                    paletteId: cloudProfile.palette_id || undefined,
+                  });
                 });
-              });
+              }
             }
           }
           if (carouselsRes.ok) {
