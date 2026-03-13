@@ -192,8 +192,13 @@ export default function Home() {
             fetch("/api/sync?action=load-carousels"),
           ]);
           if (profileRes.ok) {
-            const { profile: cloudProfile } = await profileRes.json();
-            if (cloudProfile) {
+            const { profilesData, profile: cloudProfile } = await profileRes.json();
+            if (profilesData && profilesData.profiles?.length > 0) {
+              // Full ProfileStore from cloud — use it directly
+              setProfileStore(profilesData);
+              saveProfileStore(profilesData);
+            } else if (cloudProfile) {
+              // Legacy: single profile fields only
               setProfileStore((prev) => {
                 if (!prev) return prev;
                 const active = getActiveProfile(prev);
@@ -243,10 +248,25 @@ export default function Home() {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         const activeProfile = getActiveProfile(profileStore);
+        // Strip headshot base64 from cloud sync (too large)
+        const cloudStore = {
+          ...profileStore,
+          profiles: profileStore.profiles.map((p) => ({
+            ...p,
+            headshotUrl:
+              p.headshotUrl && p.headshotUrl.startsWith("data:")
+                ? null
+                : p.headshotUrl,
+          })),
+        };
         fetch("/api/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "save-profile", profile: activeProfile }),
+          body: JSON.stringify({
+            action: "save-profile",
+            profile: activeProfile,
+            profilesData: cloudStore,
+          }),
         }).catch(() => {});
       }, 2000);
     }

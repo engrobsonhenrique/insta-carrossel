@@ -4,8 +4,8 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 
 function getSupabase() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL!.replace(/\s+/g, ""),
+    process.env.SUPABASE_SERVICE_ROLE_KEY!.replace(/\s+/g, "")
   );
 }
 
@@ -31,7 +31,10 @@ export async function GET(req: NextRequest) {
       .eq("id", userId)
       .single();
 
-    return NextResponse.json({ profile: data || null });
+    return NextResponse.json({
+      profile: data || null,
+      profilesData: data?.profiles_data || null,
+    });
   }
 
   if (action === "load-carousels") {
@@ -59,8 +62,8 @@ export async function POST(req: NextRequest) {
   const supabase = getSupabase();
 
   if (action === "save-profile") {
-    const { profile } = body;
-    await supabase.from("profiles").upsert({
+    const { profile, profilesData } = body;
+    const upsertData: Record<string, unknown> = {
       id: userId,
       display_name: profile.displayName,
       handle: profile.handle,
@@ -69,7 +72,11 @@ export async function POST(req: NextRequest) {
       theme: profile.theme,
       persona: profile.persona || "",
       palette_id: profile.paletteId || null,
-    });
+    };
+    if (profilesData) {
+      upsertData.profiles_data = profilesData;
+    }
+    await supabase.from("profiles").upsert(upsertData);
     return NextResponse.json({ ok: true });
   }
 
