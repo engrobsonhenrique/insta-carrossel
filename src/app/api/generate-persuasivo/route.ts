@@ -79,9 +79,9 @@ export async function POST(req: NextRequest) {
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const models = [
-      "gemini-1.5-flash",
-      "gemini-2.0-flash-lite",
       "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-1.5-flash",
     ];
 
     const topicInstruction = articleContent
@@ -117,53 +117,18 @@ NÃO modifique esses textos. Use-os literalmente como os primeiros blocos do sli
         }\n`
       : "";
 
-    const prompt = `Você é um especialista em criar carrosséis persuasivos para Instagram usando a metodologia Content Machine.${personaInstruction}
+    const prompt = `Crie 21 textos curtos em PT-BR para um carrossel persuasivo sobre o tema abaixo.${personaInstruction}
 
 ${topicInstruction}
 ${hookInstruction}
-
-METODOLOGIA:
-Internamente, antes de gerar o conteúdo, realize estas etapas mentais:
-1. TRIAGEM: Identifique a transformação (o que mudou), a fricção central (a tensão real), o ângulo narrativo dominante e as evidências observáveis.
-2. ESPINHA DORSAL: Defina Hook → Mecanismo (por que acontece) → Prova (evidências) → Aplicação (consequência) → Direção (próximo passo lógico).
-
-FORMATO DE SAÍDA — TEMPLATE TWITTER (21 TEXTOS):
-Gere exatamente 21 blocos de texto numerados. Cada bloco é uma frase ou parágrafo curto (40-200 caracteres).
-Esses 21 textos serão distribuídos em 8 slides de carrossel seguindo um layout fixo.
-
-A distribuição é:
-- Slide 1 (HOOK): texto 1 (contexto) + texto 2 (desenvolvimento) + [IMAGEM] + texto 3 (bold - ancoragem)
-- Slide 2 (MECANISMO): texto 4 (contexto) + texto 5 (desenvolvimento) + [IMAGEM] + texto 6 (bold - ancoragem)
-- Slide 3 (MECANISMO): texto 7 (contexto) + [IMAGEM] + texto 8 (normal) + texto 9 (bold - ancoragem)
-- Slide 4 (PROVA): texto 10 (contexto) + texto 11 (desenvolvimento) + [IMAGEM] + texto 12 (bold - ancoragem)
-- Slide 5 (PROVA): texto 13 (contexto) + texto 14 (bold - destaque) + [IMAGEM] + texto 15 (normal)
-- Slide 6 (APLICAÇÃO): texto 16 (bold - destaque) + texto 17 (normal) + texto 18 (normal) — sem imagem
-- Slide 7 (DIREÇÃO): texto 19 (bold - destaque) + texto 20 (normal) + [IMAGEM]
-- Slide 8 (CTA): texto 21 — ${ctaInstruction}
-
-Regras para os textos:
-- Textos marcados como "bold" devem ser frases impactantes, curtas e memoráveis (40-100 caracteres)
-- Textos marcados como "contexto/desenvolvimento/normal" devem contextualizar e narrar (60-200 caracteres)
-- A narrativa deve ter progressão lógica entre os slides
-- Escreva em português do Brasil
-- Não use 2ª pessoa
-- Não invente fatos, números ou fontes
-- Use emojis com muita moderação (0-1 a cada 3 textos)
+Estrutura: Hook(1-3) → Mecanismo(4-9) → Prova(10-15) → Aplicação(16-18) → Direção(19-20) → CTA(21).
+Textos 3,6,9,12,14,16,19 devem ser frases curtas e impactantes (40-80 chars).
+Os demais devem contextualizar (60-180 chars).
+Texto 21: ${ctaInstruction}
+Sem 2a pessoa. Sem inventar fatos. Sem markdown. Sem emojis excessivos.
 ${captionInstruction}
-Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
-{
-  "texts": [
-    "texto 1", "texto 2", "texto 3",
-    "texto 4", "texto 5", "texto 6",
-    "texto 7", "texto 8", "texto 9",
-    "texto 10", "texto 11", "texto 12",
-    "texto 13", "texto 14", "texto 15",
-    "texto 16", "texto 17", "texto 18",
-    "texto 19", "texto 20", "texto 21"
-  ],
-  "searchTerms": ["termo em ingles 1", "termo 2", "termo 3", "termo 4", "termo 5", "termo 6", "termo 7"]${captionFormat ? `,
-  "caption": "legenda do post"` : ""}
-}
+Retorne APENAS JSON valido (sem markdown, sem \`\`\`):
+{"texts":["t1","t2","t3","t4","t5","t6","t7","t8","t9","t10","t11","t12","t13","t14","t15","t16","t17","t18","t19","t20","t21"],"searchTerms":["eng term 1","eng term 2","eng term 3","eng term 4","eng term 5"]${captionFormat ? ',"caption":"legenda"' : ""}}
 
 O campo searchTerms deve conter 7 termos em inglês, específicos e descritivos, para buscar imagens relevantes (1 por slide com imagem). Cada termo deve ser uma frase curta (2-4 palavras).`;
 
