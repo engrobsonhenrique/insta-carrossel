@@ -90,11 +90,11 @@ export async function POST(req: NextRequest) {
       : "";
 
     const hookInstruction = selectedHook
-      ? `\nHEADLINE ESCOLHIDA PELO USUÁRIO (use exatamente como base do slide 1):\n"${selectedHook}"\nO slide 1 deve usar essa headline. Se tiver duas linhas (separadas por \\n), a primeira é o textAbove e a segunda é o textBelow.\n`
+      ? `\nHEADLINE ESCOLHIDA PELO USUÁRIO (use como base dos textos 1 e 2 do slide 1):\n"${selectedHook}"\n`
       : "";
 
     const ctaInstruction = ctaCustomText
-      ? `Use exatamente este texto como CTA no último slide: "${ctaCustomText}"`
+      ? `Use exatamente este texto como CTA: "${ctaCustomText}"`
       : ctaType === "salvar"
         ? "CTA pedindo para SALVAR o post."
         : ctaType === "compartilhar"
@@ -121,39 +121,45 @@ Internamente, antes de gerar o conteúdo, realize estas etapas mentais:
 1. TRIAGEM: Identifique a transformação (o que mudou), a fricção central (a tensão real), o ângulo narrativo dominante e as evidências observáveis.
 2. ESPINHA DORSAL: Defina Hook → Mecanismo (por que acontece) → Prova (evidências) → Aplicação (consequência) → Direção (próximo passo lógico).
 
-FORMATO DE SAÍDA — TEMPLATE TWITTER:
-Gere exatamente 8 slides para um carrossel. Cada slide tem:
-- "textAbove": texto narrativo/contextual que fica ACIMA da imagem (2-5 linhas, 80-250 caracteres). Tom informativo, contextualiza.
-- "textBelow": texto âncora/punchline que fica ABAIXO da imagem (1-2 linhas, 30-120 caracteres). Tom impactante, em negrito. Resume ou arremata a ideia do slide.
+FORMATO DE SAÍDA — TEMPLATE TWITTER (21 TEXTOS):
+Gere exatamente 21 blocos de texto numerados. Cada bloco é uma frase ou parágrafo curto (40-200 caracteres).
+Esses 21 textos serão distribuídos em 8 slides de carrossel seguindo um layout fixo.
 
-Estrutura dos 8 slides:
-- Slide 1: HOOK — a captura de atenção mais forte. textAbove = contextualização da tese, textBelow = frase de impacto/ancoragem.
-- Slides 2-3: MECANISMO — explique POR QUE o fenômeno acontece.
-- Slides 4-5: PROVA — evidências, dados, fatos observáveis.
-- Slide 6: APLICAÇÃO — consequência prática ou leitura mais ampla.
-- Slide 7: DIREÇÃO — próximo passo lógico, sem CTA comercial.
-- Slide 8: CTA — ${ctaInstruction}
-${captionInstruction}
-REGRAS:
+A distribuição é:
+- Slide 1 (HOOK): texto 1 (contexto) + texto 2 (desenvolvimento) + [IMAGEM] + texto 3 (bold - ancoragem)
+- Slide 2 (MECANISMO): texto 4 (contexto) + texto 5 (desenvolvimento) + [IMAGEM] + texto 6 (bold - ancoragem)
+- Slide 3 (MECANISMO): texto 7 (contexto) + [IMAGEM] + texto 8 (normal) + texto 9 (bold - ancoragem)
+- Slide 4 (PROVA): texto 10 (contexto) + texto 11 (desenvolvimento) + [IMAGEM] + texto 12 (bold - ancoragem)
+- Slide 5 (PROVA): texto 13 (contexto) + texto 14 (bold - destaque) + [IMAGEM] + texto 15 (normal)
+- Slide 6 (APLICAÇÃO): texto 16 (bold - destaque) + texto 17 (normal) + texto 18 (normal) — sem imagem
+- Slide 7 (DIREÇÃO): texto 19 (bold - destaque) + texto 20 (normal) + [IMAGEM]
+- Slide 8 (CTA): texto 21 — ${ctaInstruction}
+
+Regras para os textos:
+- Textos marcados como "bold" devem ser frases impactantes, curtas e memoráveis (40-100 caracteres)
+- Textos marcados como "contexto/desenvolvimento/normal" devem contextualizar e narrar (60-200 caracteres)
+- A narrativa deve ter progressão lógica entre os slides
 - Escreva em português do Brasil
 - Não use 2ª pessoa
 - Não invente fatos, números ou fontes
-- Cada textAbove deve contextualizar, cada textBelow deve ancorar/arrematar
-- A narrativa deve ter progressão lógica entre os slides
-- Use emojis com muita moderação (0-1 por slide)
-- O textBelow deve ser impactante e memorável
-
+- Use emojis com muita moderação (0-1 a cada 3 textos)
+${captionInstruction}
 Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
 {
-  "blocks": [
-    {"textAbove": "texto acima da imagem", "textBelow": "texto abaixo em negrito"},
-    {"textAbove": "...", "textBelow": "..."}
+  "texts": [
+    "texto 1", "texto 2", "texto 3",
+    "texto 4", "texto 5", "texto 6",
+    "texto 7", "texto 8", "texto 9",
+    "texto 10", "texto 11", "texto 12",
+    "texto 13", "texto 14", "texto 15",
+    "texto 16", "texto 17", "texto 18",
+    "texto 19", "texto 20", "texto 21"
   ],
-  "searchTerms": ["termo em ingles 1", "termo 2", "termo 3", "termo 4", "termo 5"]${captionFormat ? `,
+  "searchTerms": ["termo em ingles 1", "termo 2", "termo 3", "termo 4", "termo 5", "termo 6", "termo 7"]${captionFormat ? `,
   "caption": "legenda do post"` : ""}
 }
 
-O campo searchTerms deve conter 5 termos em inglês, específicos e descritivos, para buscar imagens relevantes. Cada termo deve ser uma frase curta (2-4 palavras).`;
+O campo searchTerms deve conter 7 termos em inglês, específicos e descritivos, para buscar imagens relevantes (1 por slide com imagem). Cada termo deve ser uma frase curta (2-4 palavras).`;
 
     let result;
     let lastError;

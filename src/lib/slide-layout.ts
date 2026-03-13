@@ -1,4 +1,4 @@
-import { TweetData, SlideData, PersuasiveBlock } from "./types";
+import { TweetData, SlideData, SlideElement } from "./types";
 
 /**
  * Smart slide layout logic based on the thread-carousels architecture:
@@ -94,33 +94,87 @@ export function buildSlides(
   return slides;
 }
 
+// CM5.4 Twitter Template layout: 21 texts across 8 slides
+// Each slide layout defines: text indices + whether each is bold + where image goes
+interface SlideLayout {
+  textIndices: number[];
+  boldIndices: number[]; // which of the textIndices are bold
+  imageAfter: number; // insert image after this text index (-1 = no image, 99 = at end)
+  isHook?: boolean;
+  isCTA?: boolean;
+}
+
+const TWITTER_TEMPLATE_LAYOUT: SlideLayout[] = [
+  // Slide 1: text + text + IMAGE + bold text
+  { textIndices: [0, 1, 2], boldIndices: [2], imageAfter: 1, isHook: true },
+  // Slide 2: text + text + IMAGE + bold text
+  { textIndices: [3, 4, 5], boldIndices: [5], imageAfter: 4 },
+  // Slide 3: text + IMAGE + text + bold text
+  { textIndices: [6, 7, 8], boldIndices: [8], imageAfter: 6 },
+  // Slide 4: text + text + IMAGE + bold text
+  { textIndices: [9, 10, 11], boldIndices: [11], imageAfter: 10 },
+  // Slide 5: text + bold text + IMAGE + text
+  { textIndices: [12, 13, 14], boldIndices: [13], imageAfter: 13 },
+  // Slide 6: bold text + text + text (no image)
+  { textIndices: [15, 16, 17], boldIndices: [15], imageAfter: -1 },
+  // Slide 7: bold text + text + IMAGE
+  { textIndices: [18, 19], boldIndices: [18], imageAfter: 99 },
+  // Slide 8: CTA text
+  { textIndices: [20], boldIndices: [], imageAfter: -1, isCTA: true },
+];
+
 export function buildPersuasiveSlides(
-  blocks: PersuasiveBlock[],
+  texts: string[],
   images: string[]
 ): SlideData[] {
-  if (blocks.length === 0) return [];
+  if (texts.length === 0) return [];
 
   const validImages = images.filter(
     (url) => !url.startsWith("data:text/")
   );
+  let imageIndex = 0;
 
-  return blocks.map((block, i) => {
-    const imageUrl = i < validImages.length
-      ? validImages[i]
-      : validImages.length > 0
-        ? validImages[i % validImages.length]
-        : undefined;
+  const getNextImage = (): string | undefined => {
+    if (imageIndex < validImages.length) {
+      return validImages[imageIndex++];
+    }
+    if (validImages.length > 0) {
+      return validImages[imageIndex++ % validImages.length];
+    }
+    return undefined;
+  };
 
-    const isLast = i === blocks.length - 1;
+  return TWITTER_TEMPLATE_LAYOUT.map((layout, slideIdx) => {
+    const elements: SlideElement[] = [];
+    const hasImage = layout.imageAfter >= 0;
+    const slideImage = hasImage ? getNextImage() : undefined;
+
+    for (let i = 0; i < layout.textIndices.length; i++) {
+      const textIdx = layout.textIndices[i];
+      const text = textIdx < texts.length ? texts[textIdx] : "";
+      const isBold = layout.boldIndices.includes(textIdx);
+
+      elements.push({ type: "text", content: text, bold: isBold });
+
+      // Insert image after this text if it matches
+      if (layout.imageAfter === textIdx && slideImage) {
+        elements.push({ type: "image" });
+      }
+    }
+
+    // Image at end (imageAfter: 99)
+    if (layout.imageAfter === 99 && slideImage) {
+      elements.push({ type: "image" });
+    }
 
     return {
-      id: i + 1,
-      tweets: [{ text: block.textAbove }],
-      imageUrl: isLast ? undefined : imageUrl,
-      isHook: i === 0,
-      isCTA: isLast,
+      id: slideIdx + 1,
+      tweets: [{ text: elements.filter(e => e.type === "text").map(e => e.content).join(" ") }],
+      imageUrl: slideImage,
+      isHook: layout.isHook || false,
+      isCTA: layout.isCTA || false,
       contentStyle: "persuasivo" as const,
-      persuasiveBlock: block,
+      persuasiveBlock: { elements },
     };
   });
 }

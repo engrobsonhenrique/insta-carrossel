@@ -25,8 +25,11 @@ export default function CarouselSlide({
   const isPersuasivo = slide.contentStyle === "persuasivo" && slide.persuasiveBlock;
 
   if (isPersuasivo) {
-    const block = slide.persuasiveBlock!;
+    const elements = slide.persuasiveBlock!.elements;
     const hasImage = slide.imageUrl && !slide.imageUrl.startsWith("data:text/");
+    // Find the image element index to know which element gets flex:1
+    const imageElIdx = elements.findIndex(e => e.type === "image");
+
     return (
       <div
         className="carousel-slide"
@@ -49,7 +52,7 @@ export default function CarouselSlide({
             display: "flex",
             alignItems: "center",
             gap: 16,
-            marginBottom: 32,
+            marginBottom: 28,
             flexShrink: 0,
           }}
         >
@@ -86,58 +89,53 @@ export default function CarouselSlide({
           </div>
         </div>
 
-        {/* Text Above Image */}
-        <p
-          style={{
-            fontSize: 36,
-            lineHeight: 1.4,
-            color: textColor,
-            margin: 0,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            flexShrink: 0,
-          }}
-        >
-          {block.textAbove}
-        </p>
+        {/* Render elements in order */}
+        {elements.map((el, elIdx) => {
+          if (el.type === "image") {
+            if (!hasImage) return null;
+            return (
+              <div
+                key={`img-${elIdx}`}
+                style={{
+                  marginTop: 24,
+                  marginBottom: 24,
+                  borderRadius: 20,
+                  overflow: "hidden",
+                  flex: 1,
+                  minHeight: 0,
+                }}
+              >
+                <img
+                  src={slide.imageUrl}
+                  alt=""
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+            );
+          }
 
-        {/* Image — expands to fill available space */}
-        {hasImage ? (
-          <div
-            style={{
-              marginTop: 28,
-              marginBottom: 28,
-              borderRadius: 20,
-              overflow: "hidden",
-              flex: 1,
-              minHeight: 0,
-            }}
-          >
-            <img
-              src={slide.imageUrl}
-              alt=""
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          </div>
-        ) : (
-          <div style={{ flex: 1 }} />
-        )}
+          return (
+            <p
+              key={`text-${elIdx}`}
+              style={{
+                fontSize: el.bold ? 36 : 34,
+                lineHeight: el.bold ? 1.3 : 1.4,
+                color: textColor,
+                fontWeight: el.bold ? 700 : 400,
+                margin: 0,
+                marginTop: elIdx === 0 ? 0 : 16,
+                flexShrink: 0,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {el.content}
+            </p>
+          );
+        })}
 
-        {/* Text Below Image (Bold Anchor) */}
-        <p
-          style={{
-            fontSize: 36,
-            lineHeight: 1.35,
-            color: textColor,
-            fontWeight: 700,
-            margin: 0,
-            flexShrink: 0,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-          }}
-        >
-          {block.textBelow}
-        </p>
+        {/* Fill remaining space if no image */}
+        {imageElIdx === -1 && <div style={{ flex: 1 }} />}
       </div>
     );
   }

@@ -18,7 +18,6 @@ import {
   CaptionFormat,
   AdvancedOptions,
   HookOption,
-  PersuasiveBlock,
 } from "@/lib/types";
 import { splitTextIntoTweets, buildCTATweet } from "@/lib/text-splitter";
 import HookSelector from "@/components/HookSelector";
@@ -172,7 +171,7 @@ export default function Home() {
 
     try {
       let tweetData: TweetData[] | undefined;
-      let persuasiveBlocks: PersuasiveBlock[] | undefined;
+      let persuasiveTexts: string[] | undefined;
       let searchTerms: string[] | undefined;
 
       if (isPasteMode) {
@@ -228,7 +227,7 @@ export default function Home() {
         } catch {
           throw new Error("Resposta inválida do servidor. Tente novamente.");
         }
-        persuasiveBlocks = genData.blocks;
+        persuasiveTexts = genData.texts;
         searchTerms = genData.searchTerms;
         if (genData.caption) setCaption(genData.caption);
       } else {
@@ -303,8 +302,8 @@ export default function Home() {
       setStatus("building");
       setStatusMessage("Montando slides...");
 
-      const builtSlides = persuasiveBlocks
-        ? buildPersuasiveSlides(persuasiveBlocks, images)
+      const builtSlides = persuasiveTexts
+        ? buildPersuasiveSlides(persuasiveTexts, images)
         : buildSlides(tweetData || [], images);
       setSlides(builtSlides);
       setStatus("done");
@@ -960,51 +959,42 @@ export default function Home() {
                   <h3 className="text-sm font-medium text-zinc-400">
                     Editar slide {currentSlide + 1}
                   </h3>
-                  {slides[currentSlide].persuasiveBlock ? (
+                  {slides[currentSlide].persuasiveBlock?.elements ? (
                     <>
-                      <div>
-                        <label className="block text-xs text-zinc-500 mb-1">
-                          Texto acima da imagem
-                        </label>
-                        <textarea
-                          value={slides[currentSlide].persuasiveBlock!.textAbove}
-                          onChange={(e) => {
-                            const newSlides = [...slides];
-                            newSlides[currentSlide] = {
-                              ...newSlides[currentSlide],
-                              persuasiveBlock: {
-                                ...newSlides[currentSlide].persuasiveBlock!,
-                                textAbove: e.target.value,
-                              },
-                              tweets: [{ text: e.target.value }],
-                            };
-                            setSlides(newSlides);
-                          }}
-                          rows={4}
-                          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-500 mb-1">
-                          Texto abaixo da imagem (negrito)
-                        </label>
-                        <textarea
-                          value={slides[currentSlide].persuasiveBlock!.textBelow}
-                          onChange={(e) => {
-                            const newSlides = [...slides];
-                            newSlides[currentSlide] = {
-                              ...newSlides[currentSlide],
-                              persuasiveBlock: {
-                                ...newSlides[currentSlide].persuasiveBlock!,
-                                textBelow: e.target.value,
-                              },
-                            };
-                            setSlides(newSlides);
-                          }}
-                          rows={3}
-                          className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
+                      {slides[currentSlide].persuasiveBlock!.elements
+                        .filter(el => el.type === "text")
+                        .map((el, idx) => (
+                          <div key={idx}>
+                            <label className="block text-xs text-zinc-500 mb-1">
+                              Texto {idx + 1} {el.bold ? "(negrito)" : ""}
+                            </label>
+                            <textarea
+                              value={el.content || ""}
+                              onChange={(e) => {
+                                const newSlides = [...slides];
+                                const elements = [...newSlides[currentSlide].persuasiveBlock!.elements];
+                                // Find the actual element index (skipping image elements)
+                                let textCount = 0;
+                                for (let i = 0; i < elements.length; i++) {
+                                  if (elements[i].type === "text") {
+                                    if (textCount === idx) {
+                                      elements[i] = { ...elements[i], content: e.target.value };
+                                      break;
+                                    }
+                                    textCount++;
+                                  }
+                                }
+                                newSlides[currentSlide] = {
+                                  ...newSlides[currentSlide],
+                                  persuasiveBlock: { elements },
+                                };
+                                setSlides(newSlides);
+                              }}
+                              rows={3}
+                              className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white resize-none focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        ))}
                     </>
                   ) : (
                     slides[currentSlide].tweets.map((tweet, tweetIdx) => (

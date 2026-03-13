@@ -6,9 +6,17 @@ export type CaptionFormat = "curta" | "longa";
 
 export type ContentStyle = "informativo" | "persuasivo";
 
+export interface SlideElement {
+  type: "text" | "image";
+  content?: string;
+  bold?: boolean;
+}
+
 export interface PersuasiveBlock {
-  textAbove: string;
-  textBelow: string;
+  elements: SlideElement[];
+  // Legacy compat
+  textAbove?: string;
+  textBelow?: string;
 }
 
 export interface AdvancedOptions {
