@@ -18,6 +18,7 @@ import {
   CaptionFormat,
   AdvancedOptions,
   HookOption,
+  PersuasiveTemplate,
 } from "@/lib/types";
 import { splitTextIntoTweets, buildCTATweet } from "@/lib/text-splitter";
 import HookSelector from "@/components/HookSelector";
@@ -107,6 +108,7 @@ export default function Home() {
                 headshotUrl: cloudProfile.headshot_url,
                 theme: cloudProfile.theme,
                 persona: cloudProfile.persona || "",
+                paletteId: cloudProfile.palette_id || undefined,
               });
             }
           }
@@ -192,11 +194,13 @@ export default function Home() {
         const isUrl = /^https?:\/\//i.test(topic.trim());
         setStatusMessage(isUrl ? "Lendo matéria e criando narrativa persuasiva..." : "Construindo narrativa persuasiva...");
 
+        const selectedTemplate = advancedOptions.persuasiveTemplate || "twitter";
         const genBody: Record<string, string | undefined> = {
           topic,
           persona: profile.persona,
           selectedHook,
           ctaType: advancedOptions.ctaType,
+          template: selectedTemplate,
         };
         if (advancedOptions.ctaType === "custom") {
           genBody.ctaCustomText = advancedOptions.ctaCustomText;
@@ -306,7 +310,7 @@ export default function Home() {
       setStatusMessage("Montando slides...");
 
       const builtSlides = persuasiveTexts
-        ? buildPersuasiveSlides(persuasiveTexts, images)
+        ? buildPersuasiveSlides(persuasiveTexts, images, advancedOptions.persuasiveTemplate || "twitter")
         : buildSlides(tweetData || [], images);
       setSlides(builtSlides);
       setStatus("done");
@@ -739,6 +743,49 @@ export default function Home() {
                     : "Narrativa persuasiva com captura e ancoragem (CM5.4)."}
                 </p>
               </div>
+
+              {/* Template selection (persuasivo only) */}
+              {(advancedOptions.contentStyle || "informativo") === "persuasivo" && (
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-2">
+                    Template Visual
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {([
+                      { value: "twitter", label: "Twitter", desc: "21 textos, 8 slides, com header" },
+                      { value: "autoral", label: "Autoral 2.0", desc: "18 textos, 7 slides, editorial" },
+                      { value: "principal", label: "Principal", desc: "18 textos, 8 slides, barra accent" },
+                      { value: "futurista", label: "Futurista", desc: "14 textos, 10 slides, minimalista" },
+                    ] as const).map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() =>
+                          setAdvancedOptions((prev) => ({
+                            ...prev,
+                            persuasiveTemplate: opt.value as PersuasiveTemplate,
+                          }))
+                        }
+                        className={`p-2.5 rounded-lg text-left transition-colors border ${
+                          (advancedOptions.persuasiveTemplate || "twitter") === opt.value
+                            ? "border-blue-500 bg-blue-500/10"
+                            : "border-zinc-700 bg-zinc-800 hover:border-zinc-600"
+                        }`}
+                      >
+                        <span className={`block text-sm font-medium ${
+                          (advancedOptions.persuasiveTemplate || "twitter") === opt.value
+                            ? "text-blue-400"
+                            : "text-zinc-300"
+                        }`}>
+                          {opt.label}
+                        </span>
+                        <span className="block text-[10px] text-zinc-500 mt-0.5">
+                          {opt.desc}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* CTA selection */}
               <div>

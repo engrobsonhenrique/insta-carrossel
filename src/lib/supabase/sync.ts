@@ -2,21 +2,13 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { ProfileConfig, SlideData, CarouselHistoryItem } from "../types";
 
 export async function loadProfile(
-  supabase: SupabaseClient
-): Promise<{
-  profile: ProfileConfig;
-  geminiKey: string;
-  unsplashKey: string;
-} | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ profile: ProfileConfig } | null> {
   const { data } = await supabase
     .from("profiles")
     .select("*")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   if (!data) return null;
@@ -28,47 +20,37 @@ export async function loadProfile(
       verified: data.verified,
       headshotUrl: data.headshot_url,
       theme: data.theme,
+      persona: data.persona || "",
+      paletteId: data.palette_id || undefined,
     },
-    geminiKey: data.gemini_key || "",
-    unsplashKey: data.unsplash_key || "",
   };
 }
 
 export async function saveProfile(
   supabase: SupabaseClient,
-  profile: ProfileConfig,
-  geminiKey: string,
-  unsplashKey: string
+  userId: string,
+  profile: ProfileConfig
 ): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-
   await supabase.from("profiles").upsert({
-    id: user.id,
+    id: userId,
     display_name: profile.displayName,
     handle: profile.handle,
     verified: profile.verified,
     headshot_url: profile.headshotUrl,
     theme: profile.theme,
-    gemini_key: geminiKey,
-    unsplash_key: unsplashKey,
+    persona: profile.persona || "",
+    palette_id: profile.paletteId || null,
   });
 }
 
 export async function loadCarousels(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  userId: string
 ): Promise<CarouselHistoryItem[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
-
   const { data } = await supabase
     .from("carousels")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -85,17 +67,13 @@ export async function loadCarousels(
 
 export async function saveCarousel(
   supabase: SupabaseClient,
+  userId: string,
   data: { topic: string; slides: SlideData[]; profile: ProfileConfig }
 ): Promise<CarouselHistoryItem | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
   const { data: row, error } = await supabase
     .from("carousels")
     .insert({
-      user_id: user.id,
+      user_id: userId,
       topic: data.topic,
       slides: data.slides,
       profile_snapshot: data.profile,
@@ -122,11 +100,8 @@ export async function deleteCarousel(
 }
 
 export async function clearCarousels(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  userId: string
 ): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-  await supabase.from("carousels").delete().eq("user_id", user.id);
+  await supabase.from("carousels").delete().eq("user_id", userId);
 }

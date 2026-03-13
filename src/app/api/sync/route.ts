@@ -1,0 +1,107 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
+
+async function getAuthUserId(): Promise<string | null> {
+  const { getUser } = getKindeServerSession();
+  const user = await getUser();
+  return user?.id ?? null;
+}
+
+export async function GET(req: NextRequest) {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const action = req.nextUrl.searchParams.get("action");
+  const supabase = getSupabase();
+
+  if (action === "load-profile") {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    return NextResponse.json({ profile: data || null });
+  }
+
+  if (action === "load-carousels") {
+    const { data } = await supabase
+      .from("carousels")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    return NextResponse.json({ carousels: data || [] });
+  }
+
+  return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+}
+
+export async function POST(req: NextRequest) {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json();
+  const { action } = body;
+  const supabase = getSupabase();
+
+  if (action === "save-profile") {
+    const { profile } = body;
+    await supabase.from("profiles").upsert({
+      id: userId,
+      display_name: profile.displayName,
+      handle: profile.handle,
+      verified: profile.verified,
+      headshot_url: profile.headshotUrl,
+      theme: profile.theme,
+      persona: profile.persona || "",
+      palette_id: profile.paletteId || null,
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "save-carousel") {
+    const { topic, slides, profile } = body;
+    const { data: row, error } = await supabase
+      .from("carousels")
+      .insert({
+        user_id: userId,
+        topic,
+        slides,
+        profile_snapshot: profile,
+      })
+      .select()
+      .single();
+
+    if (error || !row) {
+      return NextResponse.json({ error: "Failed to save" }, { status: 500 });
+    }
+    return NextResponse.json({ carousel: row });
+  }
+
+  if (action === "delete-carousel") {
+    const { id } = body;
+    await supabase.from("carousels").delete().eq("id", id).eq("user_id", userId);
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "clear-carousels") {
+    await supabase.from("carousels").delete().eq("user_id", userId);
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+}

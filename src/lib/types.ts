@@ -6,6 +6,19 @@ export type CaptionFormat = "curta" | "longa";
 
 export type ContentStyle = "informativo" | "persuasivo";
 
+export type PersuasiveTemplate = "twitter" | "autoral" | "principal" | "futurista";
+
+export interface ColorPalette {
+  id: string;
+  name: string;
+  bg: string;
+  text: string;
+  secondary: string;
+  divider: string;
+  accent: string;
+  avatarBg: string;
+}
+
 export interface SlideElement {
   type: "text" | "image";
   content?: string;
@@ -26,6 +39,7 @@ export interface AdvancedOptions {
   pasteOwnText?: string;
   captionFormat?: CaptionFormat;
   contentStyle?: ContentStyle;
+  persuasiveTemplate?: PersuasiveTemplate;
 }
 
 export interface ProfileConfig {
@@ -35,6 +49,7 @@ export interface ProfileConfig {
   headshotUrl: string | null;
   theme: "light" | "dark";
   persona?: string;
+  paletteId?: string;
 }
 
 export interface TweetData {
@@ -51,6 +66,7 @@ export interface SlideData {
   isCTA: boolean;
   contentStyle?: ContentStyle;
   persuasiveBlock?: PersuasiveBlock;
+  templateId?: PersuasiveTemplate;
 }
 
 export interface CarouselData {

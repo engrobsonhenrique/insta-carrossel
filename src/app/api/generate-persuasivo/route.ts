@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { PersuasiveTemplate } from "@/lib/types";
 
 export const runtime = "edge";
 export const maxDuration = 30;
@@ -79,9 +80,32 @@ async function extractArticleData(url: string): Promise<ArticleData | null> {
   }
 }
 
+const TEMPLATE_CONFIGS: Record<PersuasiveTemplate, { textCount: number; structure: string; searchCount: number }> = {
+  twitter: {
+    textCount: 21,
+    structure: "Hook(1-3) → Mecanismo(4-9) → Prova(10-15) → Aplicação(16-18) → Direção(19-20) → CTA(21).\nTextos 3,6,9,12,14,16,19 devem ser frases curtas e impactantes (40-80 chars).\nOs demais devem contextualizar (60-180 chars).",
+    searchCount: 7,
+  },
+  autoral: {
+    textCount: 18,
+    structure: "Hook impactante(1) → Desenvolvimento(2) → Contexto(3-4) → Insight(5) → Aprofundamento(6-7) → Revelação(8) → Transição(9-10) → Prova(11) → Provocação(12-13) → Aplicação(14-15) → Conclusão(16) → Fechamento(17) → CTA(18).\nTextos 1,3,5,8,12,16 devem ser frases curtas e impactantes (40-80 chars).\nOs demais devem ser narrativos e fluídos (80-200 chars).\nEstilo editorial contínuo, como se fosse um ensaio.",
+    searchCount: 4,
+  },
+  principal: {
+    textCount: 18,
+    structure: "Hook(1) → Abertura(2) → Contexto(3-4) → Destaque(5) → Desenvolvimento(6-7) → Insight(8) → Argumento(9-10) → Ponto-chave(11) → Evidência(12-13) → Conclusão(14) → Aplicação(15-16) → Direção(17) → CTA(18).\nTextos 1,5,7,8,10,14 devem ser frases curtas e impactantes (40-80 chars).\nOs demais devem contextualizar (60-180 chars).",
+    searchCount: 5,
+  },
+  futurista: {
+    textCount: 14,
+    structure: "Hook provocativo(1) → Contexto(2) → Insight(3) → Argumento A(4) → Argumento B(5) → Revelação(6) → Ponto-chave(7) → Provocação(8) → Evidência(9-10) → Conclusão(11) → Aplicação(12) → Fechamento(13) → CTA(14).\nTextos 1,3,5,8,11 devem ser frases curtas e provocativas (30-70 chars).\nOs demais devem ser concisos (50-120 chars).\nEstilo minimalista e futurista. Frases de impacto.",
+    searchCount: 3,
+  },
+};
+
 export async function POST(req: NextRequest) {
   try {
-    const { topic, persona, selectedHook, ctaType, ctaCustomText, captionFormat } =
+    const { topic, persona, selectedHook, ctaType, ctaCustomText, captionFormat, template } =
       await req.json();
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -98,6 +122,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    const templateId: PersuasiveTemplate = template || "twitter";
+    const config = TEMPLATE_CONFIGS[templateId];
 
     let articleContent: string | null = null;
     let articleImages: string[] = [];
@@ -156,20 +183,21 @@ NÃO modifique esses textos. Use-os literalmente como os primeiros blocos do sli
         }\n`
       : "";
 
-    const prompt = `Crie 21 textos curtos em PT-BR para um carrossel persuasivo sobre o tema abaixo.${personaInstruction}
+    // Build the texts array placeholder for JSON output
+    const textsPlaceholder = Array.from({ length: config.textCount }, (_, i) => `"t${i + 1}"`).join(",");
+
+    const prompt = `Crie ${config.textCount} textos curtos em PT-BR para um carrossel persuasivo sobre o tema abaixo.${personaInstruction}
 
 ${topicInstruction}
 ${hookInstruction}
-Estrutura: Hook(1-3) → Mecanismo(4-9) → Prova(10-15) → Aplicação(16-18) → Direção(19-20) → CTA(21).
-Textos 3,6,9,12,14,16,19 devem ser frases curtas e impactantes (40-80 chars).
-Os demais devem contextualizar (60-180 chars).
-Texto 21: ${ctaInstruction}
+Estrutura: ${config.structure}
+Texto ${config.textCount}: ${ctaInstruction}
 Sem 2a pessoa. Sem inventar fatos. Sem markdown. Sem emojis excessivos.
 ${captionInstruction}
 Retorne APENAS JSON valido (sem markdown, sem \`\`\`):
-{"texts":["t1","t2","t3","t4","t5","t6","t7","t8","t9","t10","t11","t12","t13","t14","t15","t16","t17","t18","t19","t20","t21"],"searchTerms":["eng term 1","eng term 2","eng term 3","eng term 4","eng term 5"]${captionFormat ? ',"caption":"legenda"' : ""}}
+{"texts":[${textsPlaceholder}],"searchTerms":["eng term 1","eng term 2","eng term 3","eng term 4","eng term 5"]${captionFormat ? ',"caption":"legenda"' : ""}}
 
-O campo searchTerms deve conter 7 termos em inglês para buscar fotos relevantes (1 por slide com imagem). REGRAS:
+O campo searchTerms deve conter ${config.searchCount} termos em inglês para buscar fotos relevantes (1 por slide com imagem). REGRAS:
 - Descreva CENAS ou OBJETOS VISUAIS concretos (ex: "doctor examining patient hospital", "smartphone data analytics dashboard")
 - NÃO use conceitos abstratos (ex: "success", "power", "growth")
 - 3-5 palavras descritivas por termo

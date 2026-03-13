@@ -1,6 +1,7 @@
 "use client";
 
 import { ProfileConfig } from "@/lib/types";
+import { PALETTES } from "@/lib/palettes";
 
 interface ProfileFormProps {
   profile: ProfileConfig;
@@ -21,6 +22,8 @@ export default function ProfileForm({
       reader.readAsDataURL(file);
     }
   };
+
+  const currentPaletteId = profile.paletteId || (profile.theme === "light" ? "twitter-light" : "twitter-dark");
 
   return (
     <div className="space-y-4">
@@ -92,32 +95,43 @@ export default function ProfileForm({
         />
       </div>
 
-      {/* Theme */}
+      {/* Palette */}
       <div className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
         <h3 className="text-sm font-medium text-zinc-400 mb-3">
-          Tema do Carrossel
+          Paleta de Cores
         </h3>
-        <div className="flex gap-3">
-          <button
-            onClick={() => onChange({ ...profile, theme: "dark" })}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              profile.theme === "dark"
-                ? "bg-blue-500 text-white"
-                : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-            }`}
-          >
-            Escuro
-          </button>
-          <button
-            onClick={() => onChange({ ...profile, theme: "light" })}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-              profile.theme === "light"
-                ? "bg-blue-500 text-white"
-                : "bg-zinc-700 text-zinc-300 hover:bg-zinc-600"
-            }`}
-          >
-            Claro
-          </button>
+        <div className="grid grid-cols-3 gap-2">
+          {PALETTES.map((palette) => (
+            <button
+              key={palette.id}
+              onClick={() =>
+                onChange({
+                  ...profile,
+                  paletteId: palette.id,
+                  theme: palette.id === "twitter-light" ? "light" : "dark",
+                })
+              }
+              className={`relative flex flex-col items-center gap-1.5 p-2.5 rounded-lg border-2 transition-colors ${
+                currentPaletteId === palette.id
+                  ? "border-blue-500 bg-zinc-700/50"
+                  : "border-zinc-700/50 hover:border-zinc-600"
+              }`}
+            >
+              <div className="flex items-center gap-1">
+                <div
+                  className="w-8 h-8 rounded-md"
+                  style={{ backgroundColor: palette.bg, border: "1px solid rgba(255,255,255,0.1)" }}
+                />
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: palette.accent }}
+                />
+              </div>
+              <span className="text-[10px] text-zinc-400 leading-tight text-center">
+                {palette.name}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
     </div>
