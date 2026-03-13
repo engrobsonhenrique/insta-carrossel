@@ -4,7 +4,7 @@ import { PersuasiveTemplate } from "@/lib/types";
 import { extractJSON } from "@/lib/json-extract";
 
 export const runtime = "edge";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 function isUrl(text: string): boolean {
   return /^https?:\/\//i.test(text.trim());

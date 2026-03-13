@@ -1,6 +1,7 @@
 /**
  * Extract the first balanced JSON object from a string.
- * Handles: markdown fences, trailing text with braces, truncated responses.
+ * Handles: markdown fences, trailing text with braces, truncated responses,
+ * literal newlines inside strings, unescaped control chars.
  */
 export function extractJSON(raw: string): Record<string, unknown> | null {
   // Strip markdown code fences
@@ -66,20 +67,73 @@ export function extractJSON(raw: string): Record<string, unknown> | null {
   return null;
 }
 
+/**
+ * Fix literal newlines/tabs inside JSON strings while preserving
+ * whitespace between tokens. Uses a state machine to track string context.
+ */
+function fixNewlinesInStrings(str: string): string {
+  let result = "";
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+
+    if (escape) {
+      result += ch;
+      escape = false;
+      continue;
+    }
+
+    if (ch === "\\" && inString) {
+      result += ch;
+      escape = true;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = !inString;
+      result += ch;
+      continue;
+    }
+
+    if (inString && (ch === "\n" || ch === "\r")) {
+      result += "\\n";
+      // Skip \r\n pairs
+      if (ch === "\r" && str[i + 1] === "\n") i++;
+      continue;
+    }
+
+    if (inString && ch === "\t") {
+      result += "\\t";
+      continue;
+    }
+
+    result += ch;
+  }
+
+  return result;
+}
+
 function tryParse(str: string): Record<string, unknown> | null {
+  // Attempt 1: parse as-is
   try {
     return JSON.parse(str);
-  } catch {
-    // Fix trailing commas and control characters, then retry
-    try {
-      const fixed = str
-        .replace(/,\s*([}\]])/g, "$1")
-        .replace(/[\x00-\x1F\x7F]/g, (c) =>
-          c === "\n" || c === "\t" ? c : ""
-        );
-      return JSON.parse(fixed);
-    } catch {
-      return null;
-    }
-  }
+  } catch { /* continue */ }
+
+  // Attempt 2: fix newlines inside strings + trailing commas
+  try {
+    const fixed = fixNewlinesInStrings(str).replace(/,\s*([}\]])/g, "$1");
+    return JSON.parse(fixed);
+  } catch { /* continue */ }
+
+  // Attempt 3: replace all control chars with spaces
+  try {
+    const fixed = str
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/[\x00-\x1F\x7F]/g, " ");
+    return JSON.parse(fixed);
+  } catch { /* continue */ }
+
+  return null;
 }
