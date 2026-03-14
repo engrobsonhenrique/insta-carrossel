@@ -5,13 +5,20 @@
  */
 export function extractJSON(raw: string): Record<string, unknown> | null {
   // Strip markdown code fences
-  const text = raw
+  let text = raw
     .replace(/```json\s*/gi, "")
     .replace(/```\s*/g, "")
     .trim();
 
+  // Quick attempt: fix newlines and parse directly
+  const quick = tryParse(text);
+  if (quick) return quick;
+
   const start = text.indexOf("{");
   if (start === -1) return null;
+
+  // Fix literal newlines inside JSON strings before walking braces
+  text = fixNewlinesInStrings(text);
 
   // Walk through and find balanced braces
   let depth = 0;
@@ -51,8 +58,9 @@ export function extractJSON(raw: string): Record<string, unknown> | null {
   // Unbalanced — likely truncated. Try to repair.
   if (depth > 0) {
     let truncated = text.slice(start);
-    // Remove trailing incomplete string/value
+    // Remove trailing incomplete key-value or string
     truncated = truncated.replace(/,\s*"[^"]*$/, "");
+    truncated = truncated.replace(/,\s*\{[^}]*$/, "");
     truncated = truncated.replace(/,\s*$/, "");
     // Close open structures
     const openBrackets = (truncated.match(/\[/g) || []).length;
@@ -128,6 +136,17 @@ function tryParse(str: string): Record<string, unknown> | null {
   } catch { /* continue */ }
 
   // Attempt 3: replace all control chars with spaces
+  try {
+    const fixed = fixNewlinesInStrings(str)
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/[\x00-\x1F\x7F]/g, (ch) => {
+        if (ch === "\n" || ch === "\r" || ch === "\t") return ch;
+        return " ";
+      });
+    return JSON.parse(fixed);
+  } catch { /* continue */ }
+
+  // Attempt 4: aggressive cleanup — strip all control chars
   try {
     const fixed = str
       .replace(/,\s*([}\]])/g, "$1")
