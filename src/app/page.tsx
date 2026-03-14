@@ -409,14 +409,12 @@ export default function Home() {
           topic,
           persona: profile.persona,
           selectedHook,
+          captionFormat: mode === "rapido" ? "curta" : advancedOptions.captionFormat,
         };
         if (mode === "avancado") {
           genBody.ctaType = advancedOptions.ctaType;
           if (advancedOptions.ctaType === "custom") {
             genBody.ctaCustomText = advancedOptions.ctaCustomText;
-          }
-          if (advancedOptions.captionFormat) {
-            genBody.captionFormat = advancedOptions.captionFormat;
           }
         }
 
