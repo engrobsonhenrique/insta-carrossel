@@ -1,7 +1,7 @@
 import { CarouselHistoryItem, SlideData, ProfileConfig } from "./types";
 
 const STORAGE_KEY = "insta-carrossel-history";
-const MAX_ITEMS = 20;
+const MAX_ITEMS = 5;
 
 // Strip base64 data URLs from slides to avoid localStorage quota issues
 function stripBase64Images(slides: SlideData[]): SlideData[] {

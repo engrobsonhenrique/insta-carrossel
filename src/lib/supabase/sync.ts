@@ -62,6 +62,7 @@ export async function loadCarousels(
     topic: row.topic,
     slides: row.slides as SlideData[],
     profile: row.profile_snapshot as ProfileConfig,
+    caption: (row.caption as string) || undefined,
     createdAt: row.created_at,
   }));
 }

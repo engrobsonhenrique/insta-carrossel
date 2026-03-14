@@ -470,6 +470,29 @@ export default function Home() {
           .then((data) => {
             if (data.carousel) {
               setCurrentHistoryId(data.carousel.id);
+              // Update slides with permanent Storage URLs (replaces base64)
+              const cloudSlides = data.carousel.slides;
+              if (cloudSlides) {
+                setSlides(cloudSlides);
+              }
+              // Reload history from cloud to get permanent URLs
+              fetch("/api/sync?action=load-carousels")
+                .then((r) => r.json())
+                .then((d) => {
+                  if (d.carousels?.length > 0) {
+                    setHistory(
+                      d.carousels.map((row: Record<string, unknown>) => ({
+                        id: row.id,
+                        topic: row.topic,
+                        slides: row.slides,
+                        profile: row.profile_snapshot,
+                        caption: (row.caption as string) || undefined,
+                        createdAt: row.created_at,
+                      }))
+                    );
+                  }
+                })
+                .catch(() => {});
             }
           })
           .catch(() => {});
