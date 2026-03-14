@@ -42,6 +42,13 @@ export interface AdvancedOptions {
   persuasiveTemplate?: PersuasiveTemplate;
 }
 
+export interface CustomPalette {
+  bg: string;
+  text: string;
+  secondary: string;
+  accent: string;
+}
+
 export interface ProfileConfig {
   id: string;
   displayName: string;
@@ -51,6 +58,7 @@ export interface ProfileConfig {
   theme: "light" | "dark";
   persona?: string;
   paletteId?: string;
+  customPalette?: CustomPalette;
   blotatoApiKey?: string;
   blotatoAccountId?: string;
 }

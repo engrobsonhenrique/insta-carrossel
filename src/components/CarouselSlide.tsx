@@ -16,7 +16,7 @@ export default function CarouselSlide({
   slideNumber,
   totalSlides,
 }: CarouselSlideProps) {
-  const palette = getPalette(profile.paletteId, profile.theme);
+  const palette = getPalette(profile.paletteId, profile.theme, profile.customPalette);
   const bgColor = palette.bg;
   const textColor = palette.text;
   const secondaryColor = palette.secondary;

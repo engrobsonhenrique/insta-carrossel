@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ProfileConfig, ProfileStore } from "@/lib/types";
+import { ProfileConfig, ProfileStore, CustomPalette } from "@/lib/types";
 import { PALETTES } from "@/lib/palettes";
 import { getActiveProfile } from "@/lib/profile-store";
 
@@ -278,50 +278,150 @@ export default function ProfileForm({
             </div>
           </div>
 
-          {/* Palette */}
-          <div className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
-            <h3 className="text-sm font-medium text-zinc-400 mb-3">
-              Paleta de Cores
-            </h3>
-            <div className="grid grid-cols-3 gap-2">
-              {PALETTES.map((palette) => (
-                <button
-                  key={palette.id}
-                  onClick={() =>
-                    onProfileChange({
-                      ...profile,
-                      paletteId: palette.id,
-                      theme:
-                        palette.id === "twitter-light" ? "light" : "dark",
-                    })
-                  }
-                  className={`relative flex flex-col items-center gap-1.5 p-2.5 rounded-lg border-2 transition-colors ${
-                    currentPaletteId === palette.id
-                      ? "border-blue-500 bg-zinc-700/50"
-                      : "border-zinc-700/50 hover:border-zinc-600"
-                  }`}
-                >
-                  <div className="flex items-center gap-1">
-                    <div
-                      className="w-8 h-8 rounded-md"
-                      style={{
-                        backgroundColor: palette.bg,
-                        border: "1px solid rgba(255,255,255,0.1)",
-                      }}
-                    />
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: palette.accent }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-zinc-400 leading-tight text-center">
-                    {palette.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Blotato section ends here */}
         </>
+      )}
+
+      {/* Palette — always visible */}
+      <PaletteSection
+        profile={profile}
+        currentPaletteId={currentPaletteId}
+        onProfileChange={onProfileChange}
+      />
+    </div>
+  );
+}
+
+const DEFAULT_CUSTOM: CustomPalette = {
+  bg: "#1a1a2e",
+  text: "#e0e0f0",
+  secondary: "#8888aa",
+  accent: "#e91e63",
+};
+
+function PaletteSection({
+  profile,
+  currentPaletteId,
+  onProfileChange,
+}: {
+  profile: ProfileConfig;
+  currentPaletteId: string;
+  onProfileChange: (p: ProfileConfig) => void;
+}) {
+  const [showCustom, setShowCustom] = useState(currentPaletteId === "custom");
+  const custom = profile.customPalette || DEFAULT_CUSTOM;
+
+  const selectPreset = (paletteId: string) => {
+    setShowCustom(false);
+    onProfileChange({
+      ...profile,
+      paletteId,
+      theme: paletteId === "twitter-light" ? "light" : "dark",
+    });
+  };
+
+  const selectCustom = () => {
+    setShowCustom(true);
+    onProfileChange({
+      ...profile,
+      paletteId: "custom",
+      theme: "dark",
+      customPalette: custom,
+    });
+  };
+
+  const updateCustomColor = (key: keyof CustomPalette, value: string) => {
+    const updated = { ...custom, [key]: value };
+    onProfileChange({
+      ...profile,
+      paletteId: "custom",
+      customPalette: updated,
+    });
+  };
+
+  return (
+    <div className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-700/50">
+      <h3 className="text-sm font-medium text-zinc-400 mb-3">
+        Paleta de Cores
+      </h3>
+      <div className="grid grid-cols-3 gap-2">
+        {PALETTES.map((palette) => (
+          <button
+            key={palette.id}
+            onClick={() => selectPreset(palette.id)}
+            className={`relative flex flex-col items-center gap-1.5 p-2.5 rounded-lg border-2 transition-colors ${
+              currentPaletteId === palette.id
+                ? "border-blue-500 bg-zinc-700/50"
+                : "border-zinc-700/50 hover:border-zinc-600"
+            }`}
+          >
+            <div className="flex items-center gap-1">
+              <div
+                className="w-8 h-8 rounded-md"
+                style={{
+                  backgroundColor: palette.bg,
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
+              />
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: palette.accent }}
+              />
+            </div>
+            <span className="text-[10px] text-zinc-400 leading-tight text-center">
+              {palette.name}
+            </span>
+          </button>
+        ))}
+
+        {/* Custom palette button */}
+        <button
+          onClick={selectCustom}
+          className={`relative flex flex-col items-center gap-1.5 p-2.5 rounded-lg border-2 transition-colors ${
+            currentPaletteId === "custom"
+              ? "border-blue-500 bg-zinc-700/50"
+              : "border-zinc-700/50 hover:border-zinc-600"
+          }`}
+        >
+          <div className="flex items-center gap-1">
+            <div
+              className="w-8 h-8 rounded-md"
+              style={{
+                background: `linear-gradient(135deg, ${custom.bg} 50%, ${custom.accent} 50%)`,
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            />
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: custom.accent }}
+            />
+          </div>
+          <span className="text-[10px] text-zinc-400 leading-tight text-center">
+            Personalizado
+          </span>
+        </button>
+      </div>
+
+      {/* Custom color pickers */}
+      {showCustom && (
+        <div className="mt-3 pt-3 border-t border-zinc-700/50 grid grid-cols-2 gap-3">
+          {([
+            ["bg", "Fundo"],
+            ["text", "Texto"],
+            ["secondary", "Secundário"],
+            ["accent", "Destaque"],
+          ] as [keyof CustomPalette, string][]).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2">
+              <input
+                type="color"
+                value={custom[key]}
+                onChange={(e) => updateCustomColor(key, e.target.value)}
+                className="w-8 h-8 rounded cursor-pointer border border-zinc-600 bg-transparent"
+              />
+              <span className="text-xs text-zinc-400">{label}</span>
+            </label>
+          ))}
+        </div>
       )}
     </div>
   );
