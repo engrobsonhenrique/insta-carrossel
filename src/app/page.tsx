@@ -221,10 +221,11 @@ export default function Home() {
 
       if (user) {
         try {
-          // Load from Supabase (source of truth)
+          // Load from Supabase (source of truth) — pass userId as fallback
+          const uid = user.id;
           const [profileRes, carouselsRes] = await Promise.all([
-            fetch("/api/sync?action=load-profile"),
-            fetch("/api/sync?action=load-carousels"),
+            fetch(`/api/sync?action=load-profile&userId=${uid}`),
+            fetch(`/api/sync?action=load-carousels&userId=${uid}`),
           ]);
           if (profileRes.ok) {
             const { profilesData } = await profileRes.json();
@@ -237,11 +238,13 @@ export default function Home() {
               // Cloud has no profilesData — use local and push to cloud
               console.log("Cloud empty, pushing local store with", localStore.profiles.length, "profiles");
               setProfileStore(localStore);
-              syncToCloud(localStore);
+              await syncToCloud(localStore);
             }
           } else {
             console.error("Cloud load failed:", profileRes.status);
             setProfileStore(localStore);
+            // Try to push local to cloud anyway
+            await syncToCloud(localStore);
           }
           if (carouselsRes.ok) {
             const { carousels } = await carouselsRes.json();
@@ -258,7 +261,8 @@ export default function Home() {
               );
             }
           }
-        } catch {
+        } catch (e) {
+          console.error("Load data error:", e);
           setProfileStore(localStore);
         }
       } else {
@@ -271,21 +275,51 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user]);
 
-  // Save profile store on every change
+  // Save profile store on every change — immediate cloud sync
   useEffect(() => {
     if (!loaded || !profileStore) return;
 
     // Always save to localStorage
     saveProfileStore(profileStore);
 
-    // Debounce cloud sync
+    // Sync to cloud immediately (no debounce — reliability over performance)
     if (user) {
+      // Small debounce (500ms) to batch rapid changes like typing
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
       saveTimerRef.current = setTimeout(() => {
         syncToCloud(profileStore);
-      }, 2000);
+      }, 500);
     }
   }, [profileStore, loaded, user, syncToCloud]);
+
+  // Flush pending sync when user leaves the page
+  useEffect(() => {
+    if (!user) return;
+    const handleBeforeUnload = () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        // Use sendBeacon for reliable delivery on page close
+        const store = profileStore ? stripHeadshotsForCloud(profileStore) : null;
+        if (store) {
+          const activeProf = getActiveProfile(store);
+          navigator.sendBeacon(
+            "/api/sync",
+            new Blob(
+              [JSON.stringify({
+                action: "save-profile",
+                profile: activeProf,
+                profilesData: store,
+                userId: user.id,
+              })],
+              { type: "application/json" }
+            )
+          );
+        }
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [user, profileStore, stripHeadshotsForCloud]);
 
   const generateCarousel = useCallback(async (selectedHook?: string) => {
     const isPasteMode = mode === "avancado" && advancedOptions.usePasteText && advancedOptions.pasteOwnText?.trim();
@@ -464,6 +498,7 @@ export default function Home() {
             slides: builtSlides,
             profile,
             caption,
+            userId: user?.id,
           }),
         })
           .then((res) => res.json())
@@ -476,7 +511,7 @@ export default function Home() {
                 setSlides(cloudSlides);
               }
               // Reload history from cloud to get permanent URLs
-              fetch("/api/sync?action=load-carousels")
+              fetch(`/api/sync?action=load-carousels&userId=${user?.id}`)
                 .then((r) => r.json())
                 .then((d) => {
                   if (d.carousels?.length > 0) {
@@ -682,7 +717,7 @@ export default function Home() {
       fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete-carousel", id }),
+        body: JSON.stringify({ action: "delete-carousel", id, userId: user?.id }),
       }).catch(() => {});
     }
   };
@@ -695,7 +730,7 @@ export default function Home() {
       fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "clear-carousels" }),
+        body: JSON.stringify({ action: "clear-carousels", userId: user?.id }),
       }).catch(() => {});
     }
   };

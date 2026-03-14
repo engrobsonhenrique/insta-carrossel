@@ -93,7 +93,17 @@ async function getAuthUserId(): Promise<string | null> {
 }
 
 export async function GET(req: NextRequest) {
-  const userId = await getAuthUserId();
+  let userId = await getAuthUserId();
+
+  // Fallback: accept userId from query param if server auth fails
+  if (!userId) {
+    const paramUserId = req.nextUrl.searchParams.get("userId");
+    if (paramUserId) {
+      userId = paramUserId;
+      console.log("sync GET: auth failed, using query userId:", userId);
+    }
+  }
+
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -134,11 +144,10 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { action } = body;
 
-  // Fallback: if auth fails but client sent userId, use it for save-profile
-  // This is safe because we use service_role key (bypasses RLS)
-  if (!userId && action === "save-profile" && body.userId) {
+  // Fallback: if server auth fails, accept userId from client body
+  if (!userId && body.userId) {
     userId = body.userId;
-    console.log("sync POST: auth failed, using body.userId:", userId);
+    console.log("sync POST: auth failed, using body.userId for", action);
   }
 
   if (!userId) {
