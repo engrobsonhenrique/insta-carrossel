@@ -21,12 +21,12 @@ async function persistImage(
   slideIndex: number,
   dataUrl: string
 ): Promise<string> {
-  const match = dataUrl.match(/^data:(image\/\w+);base64,(.+)$/);
+  const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
   if (!match) return dataUrl;
 
   const contentType = match[1];
   const base64 = match[2];
-  const ext = contentType.split("/")[1] || "png";
+  const ext = contentType.split("/")[1].replace("+xml", "") || "png";
   const buffer = Buffer.from(base64, "base64");
   const path = `carousel-images/${userId}/${carouselTs}/slide-${slideIndex}.${ext}`;
 
@@ -73,16 +73,6 @@ async function enforceCarouselLimit(
 
   const toDelete = all.slice(MAX_CAROUSELS_PER_USER);
   const ids = toDelete.map((r: { id: string }) => r.id);
-
-  // Delete Storage folder for this user's old carousels (best-effort)
-  const { data: files } = await supabase.storage
-    .from("carousel-images")
-    .list(`carousel-images/${userId}`);
-  if (files && files.length > 0) {
-    // Keep only recent folders, remove old ones
-    // We can't easily match carousel ID to folder, so just enforce DB limit
-  }
-
   await supabase.from("carousels").delete().in("id", ids);
 }
 
@@ -141,7 +131,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   let userId = await getAuthUserId();
 
-  const body = await req.json();
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { action } = body;
 
   // Fallback: if server auth fails, accept userId from client body

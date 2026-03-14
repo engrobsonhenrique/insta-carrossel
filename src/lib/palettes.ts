@@ -75,8 +75,8 @@ export function getPalette(
       bg: customPalette.bg,
       text: customPalette.text,
       secondary: customPalette.secondary,
-      divider: customPalette.bg === "#ffffff" || customPalette.bg === "#fff"
-        ? "#e5e7eb"
+      divider: isLightColor(customPalette.bg)
+        ? adjustBrightness(customPalette.bg, -20)
         : adjustBrightness(customPalette.bg, 20),
       accent: customPalette.accent,
       avatarBg: adjustBrightness(customPalette.bg, 15),
@@ -90,9 +90,26 @@ export function getPalette(
   return theme === "light" ? PALETTES[1] : PALETTES[0];
 }
 
+// Normalize any hex color to 6-char lowercase
+function normalizeHex(hex: string): string {
+  let h = hex.replace("#", "").toLowerCase();
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  return `#${h}`;
+}
+
+function isLightColor(hex: string): boolean {
+  const h = normalizeHex(hex);
+  const num = parseInt(h.replace("#", ""), 16);
+  const r = (num >> 16) & 0xff;
+  const g = (num >> 8) & 0xff;
+  const b = num & 0xff;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+}
+
 // Helper to lighten/darken a hex color
 function adjustBrightness(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
+  const h = normalizeHex(hex);
+  const num = parseInt(h.replace("#", ""), 16);
   const r = Math.min(255, Math.max(0, ((num >> 16) & 0xff) + amount));
   const g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amount));
   const b = Math.min(255, Math.max(0, (num & 0xff) + amount));
