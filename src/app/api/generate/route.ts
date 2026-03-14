@@ -136,7 +136,10 @@ export async function POST(req: NextRequest) {
 
     for (const modelName of models) {
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { maxOutputTokens: 4096 },
+        });
 
         const prompt = `Você é um especialista em criar threads virais para Instagram/Twitter sobre qualquer tema.${personaInstruction}
 
