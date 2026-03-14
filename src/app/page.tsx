@@ -114,7 +114,7 @@ export default function Home() {
       const dataUrl = await toPng(el, {
         width: 1080,
         height: 1350,
-        pixelRatio: 1,
+        pixelRatio: 2,
       });
 
       const uploadRes = await fetch("/api/upload-slide", {
@@ -559,7 +559,7 @@ export default function Home() {
       const dataUrl = await toPng(el, {
         width: 1080,
         height: 1350,
-        pixelRatio: 1,
+        pixelRatio: 2,
       });
       const link = document.createElement("a");
       link.download = `slide-${index + 1}.png`;
@@ -583,7 +583,7 @@ export default function Home() {
         const dataUrl = await toPng(el, {
           width: 1080,
           height: 1350,
-          pixelRatio: 1,
+          pixelRatio: 2,
         });
         const base64 = dataUrl.split(",")[1];
         zip.file(`slide-${String(i + 1).padStart(2, "0")}.png`, base64, {
