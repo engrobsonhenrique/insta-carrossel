@@ -174,7 +174,10 @@ Retorne APENAS um JSON válido neste formato (sem markdown, sem \`\`\`):
       try {
         const model = genAI.getGenerativeModel({
           model: modelName,
-          generationConfig: { maxOutputTokens: 4096 },
+          generationConfig: {
+            maxOutputTokens: 4096,
+            responseMimeType: "application/json",
+          },
         });
         result = await model.generateContent(prompt);
         break;

@@ -212,7 +212,10 @@ searchTerms: ${config.searchCount} termos em inglês para buscar fotos. REGRAS:
       try {
         const model = genAI.getGenerativeModel({
           model: modelName,
-          generationConfig: { maxOutputTokens: 8192 },
+          generationConfig: {
+            maxOutputTokens: 8192,
+            responseMimeType: "application/json",
+          },
         });
         result = await model.generateContent(prompt);
         break;
