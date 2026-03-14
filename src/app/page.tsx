@@ -114,7 +114,7 @@ export default function Home() {
       const dataUrl = await toPng(el, {
         width: 1080,
         height: 1350,
-        pixelRatio: 2,
+        pixelRatio: 1, // 1x for Instagram (native 1080x1350), 2x only for downloads
       });
 
       // Convert base64 to binary blob to avoid Vercel body size limits
