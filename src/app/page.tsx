@@ -117,13 +117,19 @@ export default function Home() {
         pixelRatio: 2,
       });
 
+      // Convert base64 to binary blob to avoid Vercel body size limits
+      const base64 = dataUrl.split(",")[1];
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+      const blob = new Blob([bytes], { type: "image/png" });
+
+      const formData = new FormData();
+      formData.append("file", blob, `${timestamp}-slide-${i + 1}.png`);
+
       const uploadRes = await fetch("/api/upload-slide", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: dataUrl,
-          fileName: `${timestamp}-slide-${i + 1}.png`,
-        }),
+        body: formData,
       });
 
       if (!uploadRes.ok) {

@@ -5,17 +5,38 @@ export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { image, fileName } = body as {
-      image: string;
-      fileName: string;
-    };
+    const contentType = req.headers.get("content-type") || "";
+    let buffer: Buffer;
+    let fileName: string;
 
-    if (!image || !fileName) {
-      return NextResponse.json(
-        { error: "image and fileName are required" },
-        { status: 400 }
-      );
+    if (contentType.includes("multipart/form-data")) {
+      // FormData upload (binary — avoids body size limits)
+      const formData = await req.formData();
+      const file = formData.get("file") as File | null;
+      if (!file) {
+        return NextResponse.json(
+          { error: "file is required" },
+          { status: 400 }
+        );
+      }
+      fileName = file.name || `slide-${Date.now()}.png`;
+      buffer = Buffer.from(await file.arrayBuffer());
+    } else {
+      // Legacy JSON upload (base64)
+      const body = await req.json();
+      const { image, fileName: fn } = body as {
+        image: string;
+        fileName: string;
+      };
+      if (!image || !fn) {
+        return NextResponse.json(
+          { error: "image and fileName are required" },
+          { status: 400 }
+        );
+      }
+      fileName = fn;
+      const base64 = image.replace(/^data:image\/\w+;base64,/, "");
+      buffer = Buffer.from(base64, "base64");
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\s+/g, "");
@@ -29,10 +50,6 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
-
-    const base64 = image.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64, "base64");
-
     const path = `carousel-images/${fileName}`;
 
     const { error } = await supabase.storage
