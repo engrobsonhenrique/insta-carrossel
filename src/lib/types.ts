@@ -95,5 +95,6 @@ export interface CarouselHistoryItem {
   topic: string;
   slides: SlideData[];
   profile: ProfileConfig;
+  caption?: string;
   createdAt: string;
 }

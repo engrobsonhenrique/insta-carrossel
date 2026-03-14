@@ -252,6 +252,7 @@ export default function Home() {
                   topic: row.topic,
                   slides: row.slides,
                   profile: row.profile_snapshot,
+                  caption: (row.caption as string) || undefined,
                   createdAt: row.created_at,
                 }))
               );
@@ -448,7 +449,7 @@ export default function Home() {
 
       // Save to history
       const historyTopic = topic.trim() || "Texto colado";
-      const saved = saveToHistory({ topic: historyTopic, slides: builtSlides, profile: sanitizeProfileForHistory(profile) });
+      const saved = saveToHistory({ topic: historyTopic, slides: builtSlides, profile: sanitizeProfileForHistory(profile), caption });
       setCurrentHistoryId(saved.id);
       setHistory(getHistory());
 
@@ -462,6 +463,7 @@ export default function Home() {
             topic: historyTopic,
             slides: builtSlides,
             profile,
+            caption,
           }),
         })
           .then((res) => res.json())
@@ -643,6 +645,7 @@ export default function Home() {
     setCurrentSlide(0);
     setCurrentHistoryId(item.id);
     setTopic(item.topic);
+    setCaption(item.caption || "");
     setStatus("done");
     setStatusMessage(`Carrossel carregado: ${item.topic}`);
     setSidebarOpen(false);

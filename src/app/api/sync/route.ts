@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === "save-carousel") {
-    const { topic, slides, profile } = body;
+    const { topic, slides, profile, caption } = body;
     const { data: row, error } = await supabase
       .from("carousels")
       .insert({
@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
         topic,
         slides,
         profile_snapshot: profile,
+        caption: caption || null,
       })
       .select()
       .single();

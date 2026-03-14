@@ -28,6 +28,7 @@ export function saveToHistory(data: {
   topic: string;
   slides: SlideData[];
   profile: ProfileConfig;
+  caption?: string;
 }): CarouselHistoryItem {
   const history = getHistory();
   const item: CarouselHistoryItem = {
@@ -43,6 +44,7 @@ export function saveToHistory(data: {
       blotatoApiKey: undefined,
       blotatoAccountId: undefined,
     },
+    caption: data.caption || undefined,
     createdAt: new Date().toISOString(),
   };
 
