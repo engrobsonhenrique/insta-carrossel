@@ -540,13 +540,21 @@ export default function CarouselSlide({
           backgroundColor: bgColor,
           display: "flex",
           flexDirection: "column",
-          padding: "60px 64px 60px",
+          padding: "80px 64px 60px",
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           position: "relative",
           overflow: "hidden",
         }}
       >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            justifyContent: "center",
+          }}
+        >
         {/* Profile header */}
         <div
           style={{
@@ -575,7 +583,7 @@ export default function CarouselSlide({
               />
             )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ fontSize: 46, fontWeight: 800, color: textColor, whiteSpace: "nowrap" }}>
                 {profile.displayName}
@@ -641,9 +649,7 @@ export default function CarouselSlide({
             </p>
           );
         })}
-
-        {/* Fill remaining space if no image */}
-        {imageElIdx === -1 && <div style={{ flex: 1 }} />}
+        </div>
       </div>
     );
   }
@@ -728,7 +734,7 @@ export default function CarouselSlide({
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: 2,
+                  gap: 0,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
